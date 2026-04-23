@@ -1,0 +1,96 @@
+:root {
+  /* Surfaces */
+  --bg: oklch(98.5% 0.004 80);
+  --panel: oklch(16% 0.008 70);
+  --panel-2: oklch(19% 0.009 70);
+  --panel-3: oklch(23% 0.01 70);
+
+  /* Ink */
+  --ink: oklch(22% 0.012 70);
+  --ink-muted: oklch(46% 0.01 70);
+  --ink-faint: oklch(62% 0.008 70);
+  --ink-dark: oklch(96% 0.005 80);
+  --ink-dark-muted: oklch(72% 0.008 70);
+  --ink-dark-faint: oklch(52% 0.008 70);
+
+  /* Lines */
+  --line: oklch(92% 0.005 80);
+  --line-strong: oklch(85% 0.008 80);
+  --line-dark: oklch(28% 0.01 70);
+  --line-dark-2: oklch(33% 0.011 70);
+
+  /* Accent */
+  --accent: oklch(78% 0.17 95);
+  --accent-ink: oklch(28% 0.1 90);
+
+  /* Status */
+  --ok: oklch(72% 0.14 155);
+  --warn: oklch(78% 0.15 75);
+  --danger: oklch(66% 0.18 27);
+  --info: oklch(70% 0.13 240);
+  --purple: oklch(68% 0.16 295);
+
+  /* Methods */
+  --m-get: oklch(72% 0.14 155);
+  --m-post: oklch(70% 0.13 240);
+  --m-patch: oklch(78% 0.15 75);
+  --m-put: oklch(72% 0.14 45);
+  --m-delete: oklch(66% 0.18 27);
+  --m-options: oklch(68% 0.1 295);
+  --m-wss: oklch(78% 0.17 95);
+  --m-wss-up: oklch(70% 0.13 240);
+  --m-wss-down: oklch(78% 0.17 95);
+
+  /* Tokens for code highlighting */
+  --tok-cmd: var(--accent);
+  --tok-flag: oklch(70% 0.13 240);
+  --tok-str: oklch(75% 0.12 155);
+  --tok-key: oklch(80% 0.1 30);
+  --tok-num: oklch(78% 0.14 295);
+  --tok-kw: oklch(72% 0.14 295);
+  --tok-punct: var(--ink-dark-faint);
+
+  /* Typography */
+  --font-sans: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Layout */
+  --sidebar-w: 280px;
+  --test-w: 440px;
+  --row-h: 34px;
+  --pad-y: 20px;
+}
+
+[data-density='compact'] {
+  --row-h: 28px;
+  --pad-y: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'ss01';
+}
+
+/* focus ring — never remove */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

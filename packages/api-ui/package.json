@@ -1,0 +1,46 @@
+{
+  "name": "@space/api-ui",
+  "version": "0.1.0",
+  "description": "Static UI bundle for @space/api — Scalar-like docs & tester with WebSocket support",
+  "keywords": ["nestjs", "swagger", "openapi", "websocket", "scalar", "api-docs"],
+  "license": "MIT",
+  "author": "Space API contributors",
+  "homepage": "https://github.com/OWNER/space-api#readme",
+  "bugs": {
+    "url": "https://github.com/OWNER/space-api/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/space-api.git",
+    "directory": "packages/api-ui"
+  },
+  "type": "module",
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": "./dist/index.html",
+    "./dist/*": "./dist/*"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist .turbo",
+    "prepublishOnly": "pnpm run build"
+  },
+  "//": "React and co. are bundled into dist/*. Declaring them here would force a duplicate install on consumers. Keep as devDependencies only.",
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "zustand": "^5.0.2"
+  }
+}

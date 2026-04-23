@@ -1,0 +1,116 @@
+import { createRequire } from 'node:module';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import type { HttpServer } from '@nestjs/common';
+import type { OpenAPIObject } from '@nestjs/swagger';
+import type { SpaceApiUiOptions } from '../metadata/types.js';
+
+const requireFrom = createRequire(import.meta.url);
+
+/**
+ * Serve the `@space/api-ui` static bundle under `basePath` on the Nest http adapter.
+ * Also exposes `openapi.json` and injects the UI options into `index.html` so the
+ * SPA boots with the right title / servers without an extra round trip.
+ */
+export function serveUi(
+  http: HttpServer,
+  basePath: string,
+  document: OpenAPIObject,
+  ui: SpaceApiUiOptions = {},
+): void {
+  const indexPath = resolveUiIndex();
+  const uiDir = dirname(indexPath);
+  const prefix = normalizePath(basePath);
+
+  // JSON spec — primary boot source for the UI, also useful for `curl`.
+  http.get(`${prefix}/openapi.json`, (_req: unknown, res: any) => {
+    res.setHeader?.('Content-Type', 'application/json; charset=utf-8');
+    res.send ? res.send(JSON.stringify(document)) : res.end(JSON.stringify(document));
+  });
+
+  // index.html with bootstrap payload injected (title, theme, servers). We also
+  // inject `<base href="{prefix}/">` so relative asset paths resolve correctly
+  // whether the user landed on `/docs` or `/docs/`.
+  const indexHtml = readFileSync(indexPath, 'utf8');
+  const bootstrap = { basePath: prefix, ui };
+  const baseHref = prefix ? `${prefix}/` : '/';
+  const injected = indexHtml.replace(
+    /<head>/i,
+    `<head><base href="${baseHref}"><script>window.__SPACE_API__ = ${JSON.stringify(bootstrap).replace(/</g, '\\u003c')};</script>`,
+  );
+
+  http.get(prefix, (_req: unknown, res: any) => sendHtml(res, injected));
+  http.get(`${prefix}/`, (_req: unknown, res: any) => sendHtml(res, injected));
+
+  // Hash-named assets and any other static files.
+  mountStatic(http, `${prefix}/assets`, join(uiDir, 'assets'));
+}
+
+function sendHtml(res: any, html: string) {
+  res.setHeader?.('Content-Type', 'text/html; charset=utf-8');
+  res.send ? res.send(html) : res.end(html);
+}
+
+function normalizePath(p: string): string {
+  const stripped = p.replace(/^\/+|\/+$/g, '');
+  return stripped ? `/${stripped}` : '';
+}
+
+function resolveUiIndex(): string {
+  try {
+    return requireFrom.resolve('@space/api-ui/dist/index.html');
+  } catch {
+    // If the UI hasn't been built yet (monorepo dev), fall back to an inline stub.
+    const stub = join(process.cwd(), 'node_modules', '@space', 'api-ui', 'dist', 'index.html');
+    if (existsSync(stub)) return stub;
+    throw new Error(
+      '[@space/api] Could not locate @space/api-ui/dist/index.html. Run `pnpm --filter @space/api-ui build` first.',
+    );
+  }
+}
+
+function mountStatic(http: HttpServer, mountPath: string, dir: string) {
+  // Prefer express.static when the adapter is express; otherwise fall back to a tiny
+  // path-safe file reader that supports hashed asset names.
+  const adapter = http as unknown as {
+    getType?: () => string;
+    use?: (path: string, handler: unknown) => void;
+  };
+  if (adapter.getType?.() === 'express') {
+    try {
+      const express = requireFrom('express') as typeof import('express');
+      adapter.use?.(mountPath, express.static(dir, { immutable: true, maxAge: '1y' }));
+      return;
+    } catch {
+      // fall through to generic handler
+    }
+  }
+
+  http.get(`${mountPath}/:file`, (req: any, res: any) => {
+    const file = typeof req.params?.file === 'string' ? req.params.file : '';
+    // Prevent traversal — only base filenames allowed.
+    if (!file || file.includes('..') || file.includes('/') || file.includes('\\')) {
+      return res.status?.(400)?.send?.('bad request') ?? res.end('bad request');
+    }
+    const abs = join(dir, file);
+    if (!abs.startsWith(dir) || !existsSync(abs)) {
+      return res.status?.(404)?.send?.('not found') ?? res.end('not found');
+    }
+    const ext = abs.slice(abs.lastIndexOf('.'));
+    res.setHeader?.('Content-Type', contentType(ext));
+    res.setHeader?.('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send ? res.send(readFileSync(abs)) : res.end(readFileSync(abs));
+  });
+}
+
+function contentType(ext: string): string {
+  switch (ext) {
+    case '.js': return 'application/javascript; charset=utf-8';
+    case '.css': return 'text/css; charset=utf-8';
+    case '.svg': return 'image/svg+xml';
+    case '.woff2': return 'font/woff2';
+    case '.woff': return 'font/woff';
+    case '.json': return 'application/json; charset=utf-8';
+    default: return 'application/octet-stream';
+  }
+}
