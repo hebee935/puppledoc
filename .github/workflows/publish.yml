@@ -25,14 +25,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      # Trusted Publishing requires npm >= 11.5.1.
-      # --force sidesteps a self-upgrade bug where npm corrupts its own
-      # node_modules mid-install ("Cannot find module 'promise-retry'").
-      - run: npm install -g npm@latest --force
+      # Trusted Publishing requires npm >= 11.5.1. Node 20 ships with
+      # a stable npm 10.x that can cleanly install npm@11 on top;
+      # Node 22's bundled npm intermittently corrupts itself on self-upgrade.
+      - run: npm install -g npm@11
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm -w turbo run build --filter='!playground'
