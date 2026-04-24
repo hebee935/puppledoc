@@ -1,14 +1,15 @@
 import { useEffect } from 'react';
+import { TopBar } from './layout/TopBar';
 import { Sidebar } from './layout/Sidebar';
 import { Docs } from './layout/Docs';
-import { TestPanel } from './layout/TestPanel';
+import { TestDrawer } from './layout/TestDrawer';
 import { CommandPalette } from './components/CommandPalette';
 import { AuthorizeModal } from './components/AuthorizeModal';
 import { useStore } from './store';
 import type { OpenApiDoc } from './types';
 
 export function App() {
-  const { load, doc, bootstrap, openPalette, openAuth } = useStore();
+  const { load, doc, bootstrap, openPalette, openAuth, openDrawer, toggleSidebar } = useStore();
 
   useEffect(() => {
     (async () => {
@@ -19,17 +20,14 @@ export function App() {
         const json = (await res.json()) as OpenApiDoc;
         load(json);
       } catch (err) {
-        // Dev fallback: when running `vite dev` outside a Nest host, try a mock.
         try {
           const res = await fetch('/mock-openapi.json');
           if (res.ok) {
             load((await res.json()) as OpenApiDoc);
             return;
           }
-        } catch {
-          // ignore
-        }
-        console.error('[@space/api-ui] Failed to load openapi spec:', err);
+        } catch { /* ignore */ }
+        console.error('[space-ui] Failed to load openapi spec:', err);
       }
     })();
   }, [bootstrap.basePath, load]);
@@ -44,35 +42,41 @@ export function App() {
         e.preventDefault();
         openAuth();
       }
+      // ⌘⇧T → open test drawer
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        openDrawer();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openPalette, openAuth]);
+  }, [openPalette, openAuth, openDrawer]);
 
   if (!doc) {
-    return <div style={{ padding: 40, color: 'var(--ink-muted)' }}>Loading spec…</div>;
+    return (
+      <div className="boot-loader">
+        <div className="dots"><span /><span /><span /></div>
+      </div>
+    );
   }
 
   return (
     <>
-      <AppShell />
+      <TopBar onToggleSidebar={toggleSidebar} />
+      <Shell />
+      <TestDrawer />
       <CommandPalette />
       <AuthorizeModal />
     </>
   );
 }
 
-function AppShell() {
-  const { sidebarWidth, testWidth } = useStore();
-  const style = {
-    ['--sidebar-w' as string]: `${sidebarWidth}px`,
-    ['--test-w' as string]: `${testWidth}px`,
-  } as React.CSSProperties;
+function Shell() {
+  const { sidebarCollapsed } = useStore();
   return (
-    <div className="app" style={style}>
+    <div className="app" data-sidebar-collapsed={sidebarCollapsed}>
       <Sidebar />
       <Docs />
-      <TestPanel />
     </div>
   );
 }

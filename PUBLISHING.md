@@ -1,6 +1,6 @@
 # Publishing
 
-Both `@space/api` and `@space/api-ui` are published together (fixed versions).
+Both `@belle.develop/space-api` and `@belle.develop/space-ui` are published together (fixed versions).
 Core bundles the UI's `dist/`, so every core release implicitly ships a UI.
 
 ---
@@ -10,8 +10,8 @@ Core bundles the UI's `dist/`, so every core release implicitly ships a UI.
 ### 1. Claim the npm scope
 
 ```bash
-npm view @space/api      # → E404  →  name is free on the registry
-npm view @space/api-ui   # → E404  →  same
+npm view @belle.develop/space-api      # → E404  →  name is free on the registry
+npm view @belle.develop/space-ui   # → E404  →  same
 ```
 
 If the `@space` organization does **not** belong to you, either:
@@ -24,7 +24,7 @@ If the `@space` organization does **not** belong to you, either:
 cd /Users/belle/space-api
 git init
 git add -A
-git commit -m "Initial release of @space/api"
+git commit -m "Initial release of @belle.develop/space-api"
 git branch -M main
 git remote add origin git@github.com:OWNER/space-api.git
 git push -u origin main
@@ -53,7 +53,7 @@ Every release goes through Changesets. One changeset = one release note entry.
 
 ```bash
 # 1. Work, then record the intent:
-pnpm changeset             # pick @space/api + @space/api-ui, bump (patch/minor/major), write summary
+pnpm changeset             # pick @belle.develop/space-api + @belle.develop/space-ui, bump (patch/minor/major), write summary
 # commit the generated .changeset/*.md file
 
 # 2. Apply version bumps across both packages:
@@ -81,8 +81,8 @@ read the real tarball contents.
 
 ```bash
 # Dry-run pack each publishable package into /tmp
-pnpm -F @space/api     pack --pack-destination /tmp
-pnpm -F @space/api-ui  pack --pack-destination /tmp
+pnpm -F @belle.develop/space-api     pack --pack-destination /tmp
+pnpm -F @belle.develop/space-ui  pack --pack-destination /tmp
 
 # Inspect what's inside the tarball (especially the resolved package.json):
 tar -tzf /tmp/space-api-*.tgz
@@ -91,7 +91,7 @@ tar -xzOf /tmp/space-api-0.1.0.tgz package/package.json | jq .
 
 Things to sanity-check in the extracted `package.json`:
 
-- `dependencies["@space/api-ui"]` → an actual version like `"0.1.0"`, not `"workspace:*"`
+- `dependencies["@belle.develop/space-ui"]` → an actual version like `"0.1.0"`, not `"workspace:*"`
 - No stray `devDependencies` leaked in
 - `files` matches what you expect (dist + README + LICENSE, nothing else)
 - `types`, `main`, `module`, `exports` all resolve inside the tarball
@@ -140,7 +140,7 @@ Configure `NPM_TOKEN` in repo secrets (npm → Access Tokens → **Automation**)
 | `402 Payment Required` on publish | Scope is private by default; ensure `publishConfig.access: "public"` is set on the package (we set it already). |
 | `403 Forbidden` | You're not a member of the `@space` org on npm, or the package name is already owned by someone else. |
 | `workspace:*` appears in the published `package.json` | You published with a non-pnpm tool. Always use `pnpm publish` / `pnpm -w changeset publish`. |
-| UI shows an old asset hash after publish | `@space/api` caches `index.html` at boot. Nothing to do on the library side; host apps will pick up the new HTML on restart. |
+| UI shows an old asset hash after publish | `@belle.develop/space-api` caches `index.html` at boot. Nothing to do on the library side; host apps will pick up the new HTML on restart. |
 
 ---
 
@@ -151,6 +151,6 @@ Configure `NPM_TOKEN` in repo secrets (npm → Access Tokens → **Automation**)
 - [ ] `pnpm -w changeset version` applied
 - [ ] CHANGELOG.md updated for both packages (Changesets does this)
 - [ ] `pnpm -w turbo run build --filter='!playground'` clean
-- [ ] `pnpm -F @space/api pack --pack-destination /tmp` inspected
+- [ ] `pnpm -F @belle.develop/space-api pack --pack-destination /tmp` inspected
 - [ ] Manual smoke test: install the tarball into a fresh Nest app and confirm docs UI loads
 - [ ] `pnpm -w changeset publish` → `git push --follow-tags`

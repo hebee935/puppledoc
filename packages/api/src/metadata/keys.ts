@@ -1,4 +1,4 @@
-// Metadata keys used by @space/api. Symbols so they can't collide with user/library keys.
+// Metadata keys used by @belle.develop/space-api. Symbols so they can't collide with user/library keys.
 export const SPACE_API_WS_EVENTS = Symbol('space-api:ws-events');
 
 // NestJS @WebSocketGateway stores its options under `websockets:gateway_options` (10.x+).

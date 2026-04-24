@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsArray, IsBoolean, IsEmail, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
 /* ---------- Shared ---------- */
 
@@ -31,20 +31,26 @@ export class AttachmentDto {
 /* ---------- Channels ---------- */
 
 export class ChannelDto {
-  @ApiProperty({ example: 'ch_01' })
+  @ApiProperty({ example: 'ch_01', format: 'ulid', readOnly: true })
   id!: string;
 
-  @ApiProperty({ example: 'general' })
+  @ApiProperty({ example: 'general', pattern: '^[a-z0-9-]+$', minLength: 2, maxLength: 40 })
   name!: string;
 
   @ApiProperty({ example: false })
   isPrivate!: boolean;
 
-  @ApiProperty({ example: 12 })
+  @ApiProperty({ example: 12, minimum: 0 })
   memberCount!: number;
 
-  @ApiProperty({ example: '2026-04-20T09:00:00Z' })
+  @ApiPropertyOptional({ example: 'Product design discussion', nullable: true })
+  topic?: string | null;
+
+  @ApiProperty({ example: '2026-04-20T09:00:00Z', format: 'date-time', readOnly: true })
   createdAt!: string;
+
+  @ApiPropertyOptional({ example: '2026-04-23T10:00:00Z', format: 'date-time', nullable: true })
+  archivedAt?: string | null;
 }
 
 export class CreateChannelDto {
@@ -63,6 +69,38 @@ export class CreateChannelDto {
   topic?: string;
 }
 
+export class UpdateChannelDto {
+  @ApiPropertyOptional({ example: 'product-redesign', pattern: '^[a-z0-9-]+$' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/)
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'Q2 redesign discussion', nullable: true })
+  @IsOptional()
+  @IsString()
+  topic?: string | null;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
+}
+
+export class ReplaceChannelDto {
+  @ApiProperty({ example: 'product-redesign', pattern: '^[a-z0-9-]+$' })
+  @IsString()
+  name!: string;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  isPrivate!: boolean;
+
+  @ApiProperty({ example: 'Q2 redesign discussion' })
+  @IsString()
+  topic!: string;
+}
+
 export class ListChannelsQuery {
   @ApiProperty({ required: false, example: 20, description: '1–100' })
   @IsOptional()
@@ -75,6 +113,69 @@ export class ListChannelsQuery {
   @IsOptional()
   @IsString()
   cursor?: string;
+}
+
+/* ---------- Users ---------- */
+
+export enum UserRole {
+  Owner = 'owner',
+  Admin = 'admin',
+  Member = 'member',
+  Guest = 'guest',
+}
+
+export class UserDto {
+  @ApiProperty({ example: 'usr_alice', readOnly: true })
+  id!: string;
+
+  @ApiProperty({ example: 'Alice', minLength: 1, maxLength: 64 })
+  name!: string;
+
+  @ApiProperty({ example: 'alice@example.com', format: 'email' })
+  email!: string;
+
+  @ApiProperty({ enum: UserRole, enumName: 'UserRole', example: UserRole.Member })
+  role!: UserRole;
+
+  @ApiProperty({ example: 'UTC', description: 'IANA timezone identifier' })
+  timezone!: string;
+
+  @ApiPropertyOptional({ example: 'https://cdn.example.com/avatars/alice.png', format: 'uri', nullable: true })
+  avatarUrl?: string | null;
+
+  @ApiProperty({
+    example: '2026-01-12T08:00:00Z',
+    format: 'date-time',
+    readOnly: true,
+    deprecated: true,
+    description: 'Use `registeredAt` instead — kept for backwards compat.',
+  })
+  createdAt!: string;
+
+  @ApiProperty({ example: '2026-01-12T08:00:00Z', format: 'date-time', readOnly: true })
+  registeredAt!: string;
+}
+
+export class UpdateMeDto {
+  @ApiPropertyOptional({ example: 'Alice K.', minLength: 1, maxLength: 64 })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ example: 'alice+new@example.com', format: 'email' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiPropertyOptional({ enum: UserRole, enumName: 'UserRole', example: UserRole.Admin, description: 'Admin-only field.' })
+  @IsOptional()
+  @IsString()
+  role?: UserRole;
+
+  @ApiPropertyOptional({ example: 'Asia/Seoul' })
+  @IsOptional()
+  @IsString()
+  timezone?: string;
 }
 
 /* ---------- Messages ---------- */
@@ -96,15 +197,134 @@ export class MessageDto {
   createdAt!: string;
 }
 
+export class ThumbnailDto {
+  @ApiProperty({ example: 320 })
+  width!: number;
+
+  @ApiProperty({ example: 180 })
+  height!: number;
+
+  @ApiProperty({ example: 'https://cdn.example.com/thumb/xyz.jpg' })
+  url!: string;
+}
+
+export class MessageAttachmentDto {
+  @ApiProperty({ example: 'file_01' })
+  id!: string;
+
+  @ApiProperty({ example: 'design-v2.png' })
+  filename!: string;
+
+  @ApiProperty({ example: 'image/png' })
+  mimeType!: string;
+
+  @ApiProperty({ example: 48213, description: 'bytes' })
+  size!: number;
+
+  @ApiProperty({ required: false, type: ThumbnailDto })
+  @IsOptional()
+  thumbnail?: ThumbnailDto;
+}
+
+export class MentionDto {
+  @ApiProperty({ enum: ['user', 'channel', 'everyone'], example: 'user' })
+  type!: 'user' | 'channel' | 'everyone';
+
+  @ApiProperty({ example: 'usr_bob', description: 'Target id; empty for @everyone' })
+  targetId!: string;
+
+  @ApiProperty({ example: 7, description: 'Character offset in `text`' })
+  offset!: number;
+
+  @ApiProperty({ example: 4 })
+  length!: number;
+}
+
+export class LinkPreviewDto {
+  @ApiProperty({ example: 'https://example.com/post/42' })
+  url!: string;
+
+  @ApiProperty({ example: 'How we built realtime' })
+  title!: string;
+
+  @ApiProperty({ required: false, example: 'A deep dive into our WebSocket stack.' })
+  @IsOptional()
+  description?: string;
+
+  @ApiProperty({ required: false, type: ThumbnailDto })
+  @IsOptional()
+  thumbnail?: ThumbnailDto;
+}
+
+export class SentFromDto {
+  @ApiProperty({ enum: ['web', 'ios', 'android', 'desktop'], example: 'web' })
+  platform!: 'web' | 'ios' | 'android' | 'desktop';
+
+  @ApiProperty({ example: '2.4.0' })
+  version!: string;
+
+  @ApiProperty({ required: false, example: 'dev_01HV...' })
+  @IsOptional()
+  deviceId?: string;
+}
+
+export class MessageMetadataDto {
+  @ApiProperty({
+    required: false,
+    example: 'tmp_01HV...',
+    description: 'Idempotency key — dedupes retries of the same client-side send',
+  })
+  @IsOptional()
+  @IsString()
+  clientMessageId?: string;
+
+  @ApiProperty({ required: false, type: [LinkPreviewDto] })
+  @IsOptional()
+  @IsArray()
+  linkPreviews?: LinkPreviewDto[];
+
+  @ApiProperty({ required: false, type: SentFromDto })
+  @IsOptional()
+  sentFrom?: SentFromDto;
+}
+
+export class ReplyRefDto {
+  @ApiProperty({ example: 'msg_01' })
+  messageId!: string;
+
+  @ApiProperty({ example: 'Has anyone reviewed the PR?' })
+  text!: string;
+
+  @ApiProperty({ example: 'usr_alice' })
+  userId!: string;
+}
+
 export class SendMessageDto {
   @ApiProperty({ example: 'Shipping it tonight 🚀' })
   @IsString()
   text!: string;
 
-  @ApiProperty({ required: false, example: ['file_01'] })
+  @ApiProperty({
+    required: false,
+    type: [MessageAttachmentDto],
+    description: 'Attach previously uploaded files',
+  })
   @IsOptional()
   @IsArray()
-  attachments?: string[];
+  attachments?: MessageAttachmentDto[];
+
+  @ApiProperty({ required: false, type: [MentionDto] })
+  @IsOptional()
+  @IsArray()
+  mentions?: MentionDto[];
+
+  @ApiProperty({ required: false, type: MessageMetadataDto })
+  @IsOptional()
+  metadata?: MessageMetadataDto;
+
+  @ApiProperty({ required: false, type: ReplyRefDto })
+  @IsOptional()
+  replyTo?: ReplyRefDto;
 }
 
 export class ListMessagesQuery {

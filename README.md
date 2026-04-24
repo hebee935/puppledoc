@@ -1,18 +1,18 @@
-# `@space/api`
+# `@belle.develop/space-api`
 
 NestJS 플러그인. `@nestjs/swagger`의 OpenAPI 3.1 문서에 **WebSocket 이벤트 메타**(`x-websocket` extension)를 덧붙이고, **REST와 WS를 같은 화면에서 문서화·테스트**한다.
 
-- 📦 `@space/api` — NestJS 모듈 + 데코레이터
-- 🎨 `@space/api-ui` — 정적 UI 번들 (core가 내부에서 서빙)
+- 📦 `@belle.develop/space-api` — NestJS 모듈 + 데코레이터
+- 🎨 `@belle.develop/space-ui` — 정적 UI 번들 (core가 내부에서 서빙)
 
 ## Install
 
 ```bash
-pnpm add @space/api
-# or: npm install @space/api  /  yarn add @space/api
+pnpm add @belle.develop/space-api
+# or: npm install @belle.develop/space-api  /  yarn add @belle.develop/space-api
 ```
 
-사용자는 UI를 별도로 빌드할 필요가 없습니다. `@space/api`의 tarball에 이미 `@space/api-ui/dist`가 포함돼 있고, core가 그대로 static 서빙합니다.
+사용자는 UI를 별도로 빌드할 필요가 없습니다. `@belle.develop/space-api`의 tarball에 이미 `@belle.develop/space-ui/dist`가 포함돼 있고, core가 그대로 static 서빙합니다.
 
 ## Usage
 
@@ -20,7 +20,7 @@ pnpm add @space/api
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder } from '@nestjs/swagger';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { SpaceApiModule } from '@space/api';
+import { SpaceApiModule } from '@belle.develop/space-api';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -50,7 +50,7 @@ bootstrap();
 
 ```ts
 import { MessageBody, SubscribeMessage, WebSocketGateway, WsResponse } from '@nestjs/websockets';
-import { Receive, Send } from '@space/api';
+import { Receive, Send } from '@belle.develop/space-api';
 
 @WebSocketGateway({ path: '/realtime' })
 @Send({ event: 'presence.update', payload: PresenceDto })

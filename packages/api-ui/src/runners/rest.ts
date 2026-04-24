@@ -20,6 +20,17 @@ export async function runRest(req: {
   if (sendBody && !isForm && !hdrs['Content-Type']) hdrs['Content-Type'] = 'application/json';
   // For FormData, let the browser set Content-Type with the boundary parameter.
 
+  // HTTP headers must be ISO-8859-1 (Latin-1). Detect non-conforming chars up-front
+  // so we can surface a clear message instead of the opaque native fetch error.
+  for (const [k, v] of Object.entries(hdrs)) {
+    const offender = findNonLatin1(k) ?? findNonLatin1(v);
+    if (offender) {
+      throw new Error(
+        `Header "${k}" contains a non-Latin-1 character (${offender}). HTTP headers only accept ASCII / Latin-1 — use an ASCII-only value (e.g. a real bearer token).`,
+      );
+    }
+  }
+
   const res = await fetch(req.url, {
     method,
     headers: hdrs,
@@ -47,6 +58,13 @@ export async function runRest(req: {
     durationMs: Math.round(performance.now() - start),
     size: new Blob([text]).size,
   };
+}
+
+function findNonLatin1(s: string): string | null {
+  for (const ch of s) {
+    if (ch.codePointAt(0)! > 0xff) return JSON.stringify(ch);
+  }
+  return null;
 }
 
 /** Replace `{name}` placeholders in a path with actual values (URI-encoded). */

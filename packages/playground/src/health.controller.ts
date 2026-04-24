@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiOkResponse, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
 
 export class HealthStatusDto {
   @ApiProperty({ example: 'ok' })
@@ -21,6 +21,10 @@ export class HealthController {
   private readonly startedAt = Date.now();
 
   @Get()
+  @ApiOperation({
+    summary: 'Liveness probe',
+    description: 'Lightweight health check. No auth. Safe for load balancers to hit every second.',
+  })
   @ApiOkResponse({ type: HealthStatusDto })
   status(): HealthStatusDto {
     return {

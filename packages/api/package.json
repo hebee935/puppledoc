@@ -1,8 +1,16 @@
 {
-  "name": "@space/api",
-  "version": "0.1.0",
+  "name": "@belle.develop/space-api",
+  "version": "1.0.0",
   "description": "NestJS plugin: OpenAPI 3.1 + x-websocket extension with a Scalar-like docs/test UI",
-  "keywords": ["nestjs", "swagger", "openapi", "websocket", "scalar", "api-docs", "asyncapi"],
+  "keywords": [
+    "nestjs",
+    "swagger",
+    "openapi",
+    "websocket",
+    "scalar",
+    "api-docs",
+    "asyncapi"
+  ],
   "license": "MIT",
   "author": "Space API contributors",
   "homepage": "https://github.com/OWNER/space-api#readme",
@@ -25,7 +33,11 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -44,7 +56,7 @@
     "reflect-metadata": "^0.2.0"
   },
   "dependencies": {
-    "@space/api-ui": "workspace:*"
+    "@belle.develop/space-ui": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/common": "^10.4.15",

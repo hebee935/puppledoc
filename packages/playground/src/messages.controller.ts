@@ -19,10 +19,11 @@ import {
   ApiConsumes,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
+  ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Send } from '@space/api';
+import { Send } from '@belle.develop/space-api';
 import { ChatGateway } from './chat.gateway';
 import {
   AttachmentDto,
@@ -71,6 +72,7 @@ export class MessagesController {
   ];
 
   @Get('channels/:channelId/messages')
+  @ApiOperation({ summary: 'List messages in a channel', description: 'Returns messages newest-first. Use `before` to paginate earlier.' })
   @ApiResponse({ status: 200, type: MessageDto, isArray: true })
   @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'Channel does not exist.' })
   list(
@@ -81,6 +83,7 @@ export class MessagesController {
   }
 
   @Post('channels/:channelId/messages')
+  @ApiOperation({ summary: 'Post a message', description: 'Also broadcast over WebSocket as `message.created`.' })
   @ApiResponse({ status: 201, type: MessageDto })
   @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'Channel does not exist.' })
   send(@Param('channelId') channelId: string, @Body() dto: SendMessageDto): MessageDto {
@@ -96,6 +99,7 @@ export class MessagesController {
   }
 
   @Post('channels/:channelId/attachments')
+  @ApiOperation({ summary: 'Upload an attachment', description: 'Upload a file to be referenced by later messages in this channel.' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     description: 'Upload a file to attach to a message.',
@@ -126,6 +130,7 @@ export class MessagesController {
   }
 
   @Delete('messages/:id')
+  @ApiOperation({ summary: 'Delete a message', description: 'Only the author can delete their own messages.' })
   @HttpCode(204)
   @ApiResponse({ status: 204, description: 'Deleted.' })
   @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'No message with that id.' })

@@ -1,6 +1,6 @@
-# `@space/api-ui`
+# `@belle.develop/space-ui`
 
-Static UI bundle for [`@space/api`](../api). Normally consumed transitively — `@space/api` takes it as a dependency and serves the `dist/` directory directly.
+Static UI bundle for [`@belle.develop/space-api`](../api). Normally consumed transitively — `@belle.develop/space-api` takes it as a dependency and serves the `dist/` directory directly.
 
 Do not import this package from application code.
 
@@ -8,7 +8,7 @@ Do not import this package from application code.
 
 ```
 dist/
-├── index.html        # entry, bootstrap script gets injected by @space/api
+├── index.html        # entry, bootstrap script gets injected by @belle.develop/space-api
 └── assets/
     ├── index-*.js    # React bundle
     └── index-*.css

@@ -11,17 +11,23 @@ interface UiState {
   server: string;
   paletteOpen: boolean;
   authOpen: boolean;
+  drawerOpen: boolean;
+  sidebarCollapsed: boolean;
   sidebarWidth: number;
   testWidth: number;
 
   load: (doc: OpenApiDoc) => void;
   selectEndpoint: (id: string) => void;
+  goOverview: () => void;
   setToken: (t: string) => void;
   setServer: (u: string) => void;
   openPalette: () => void;
   closePalette: () => void;
   openAuth: () => void;
   closeAuth: () => void;
+  openDrawer: () => void;
+  closeDrawer: () => void;
+  toggleSidebar: () => void;
   setSidebarWidth: (w: number) => void;
   setTestWidth: (w: number) => void;
   getActive: () => Endpoint | null;
@@ -61,16 +67,22 @@ export const useStore = create<UiState>((set, get) => ({
   server: localStorage.getItem(STORAGE_KEYS.server) ?? '',
   paletteOpen: false,
   authOpen: false,
-  sidebarWidth: readWidth(STORAGE_KEYS.sidebarWidth, 280),
-  testWidth: readWidth(STORAGE_KEYS.testWidth, 440),
+  drawerOpen: false,
+  sidebarCollapsed: localStorage.getItem('space-api:sidebarCollapsed') === '1',
+  sidebarWidth: readWidth(STORAGE_KEYS.sidebarWidth, 260),
+  testWidth: readWidth(STORAGE_KEYS.testWidth, 520),
 
   load: (doc) => {
     const groups = normalize(doc);
     const endpoints = flattenEndpoints(groups);
     const savedId = localStorage.getItem(STORAGE_KEYS.activeId);
-    const activeId = savedId && endpoints.some((e) => e.id === savedId)
-      ? savedId
-      : endpoints[0]?.id ?? null;
+    // On fresh visit (no saved id) land on overview. Returning visitors resume
+    // where they were. The literal '__overview__' pins overview explicitly.
+    const activeId = savedId === '__overview__'
+      ? null
+      : savedId && endpoints.some((e) => e.id === savedId)
+        ? savedId
+        : null;
 
     const defaultServer =
       get().server ||
@@ -86,6 +98,10 @@ export const useStore = create<UiState>((set, get) => ({
     set({ activeId: id });
     localStorage.setItem(STORAGE_KEYS.activeId, id);
   },
+  goOverview: () => {
+    set({ activeId: null });
+    localStorage.setItem(STORAGE_KEYS.activeId, '__overview__');
+  },
   setToken: (t) => {
     set({ token: t });
     if (t) localStorage.setItem(STORAGE_KEYS.token, t);
@@ -99,6 +115,13 @@ export const useStore = create<UiState>((set, get) => ({
   closePalette: () => set({ paletteOpen: false }),
   openAuth: () => set({ authOpen: true }),
   closeAuth: () => set({ authOpen: false }),
+  openDrawer: () => set({ drawerOpen: true }),
+  closeDrawer: () => set({ drawerOpen: false }),
+  toggleSidebar: () => set((state) => {
+    const next = !state.sidebarCollapsed;
+    localStorage.setItem('space-api:sidebarCollapsed', next ? '1' : '0');
+    return { sidebarCollapsed: next };
+  }),
   setSidebarWidth: (w) => {
     const next = clampWidth(w);
     set({ sidebarWidth: next });

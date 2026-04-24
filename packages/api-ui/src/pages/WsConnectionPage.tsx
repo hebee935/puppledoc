@@ -1,6 +1,7 @@
-import { Lock } from 'lucide-react';
+import { Lock, Play } from 'lucide-react';
 import type { OpenApiDoc, WsConnectionEndpoint } from '../types';
 import { MethodPill } from '../components/MethodPill';
+import { useStore } from '../store';
 
 interface Props {
   doc: OpenApiDoc;
@@ -8,71 +9,52 @@ interface Props {
 }
 
 export function WsConnectionPage({ endpoint }: Props) {
+  const { openDrawer } = useStore();
   return (
-    <article className="endpoint">
-      <div className="ep-header">
-        <MethodPill method={endpoint.method} />
-        <span className="ep-path">{endpoint.channel.url}</span>
-        {endpoint.auth && (
-          <span className="ep-lock">
-            <Lock size={10} /> auth required
-          </span>
-        )}
-      </div>
-      <h2 className="ep-title">{endpoint.title} · {endpoint.channel.name}</h2>
-      <p className="ep-desc">{endpoint.description}</p>
-
-      <div className="section">
-        <div className="section-head">Connection URL</div>
-        <div
-          style={{
-            padding: '10px 12px',
-            background: 'oklch(96% 0.005 80)',
-            borderRadius: 8,
-            border: '1px solid var(--line)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 12.5,
-          }}
-        >
-          {endpoint.channel.url}
+    <article className="endpoint-card">
+      <header className="endpoint-hero">
+        <div className="endpoint-breadcrumb">
+          <span>{endpoint.groupName}</span>
         </div>
-      </div>
+        <div className="endpoint-hero-row">
+          <MethodPill method={endpoint.method} />
+          <span className="endpoint-path-static">{endpoint.channel.url}</span>
+          <div className="hero-actions">
+            {endpoint.auth && (
+              <span className="ep-lock-icon" title="Authentication required">
+                <Lock size={12} />
+              </span>
+            )}
+            <button className="btn primary btn-try" onClick={openDrawer}>
+              <Play size={13} /> Try it
+            </button>
+          </div>
+        </div>
+        <h1 className="endpoint-title">{endpoint.title} · {endpoint.channel.name}</h1>
+        {endpoint.description && <p className="endpoint-desc">{endpoint.description}</p>}
+      </header>
 
-      <div className="section">
-        <div className="section-head">Events</div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {endpoint.channel.events.map((ev) => (
-            <div
-              key={`${ev.direction}:${ev.event}`}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '84px 1fr',
-                gap: 14,
-                padding: 12,
-                border: '1px solid var(--line)',
-                borderRadius: 8,
-                background: 'oklch(99% 0.003 80)',
-              }}
-            >
-              <div>
+      <section className="card">
+        <header className="card-head">
+          <h3 className="card-title">Events</h3>
+          <span className="card-subtitle">{endpoint.channel.events.length} frame types</span>
+        </header>
+        <div className="card-body">
+          <div className="event-list">
+            {endpoint.channel.events.map((ev) => (
+              <div key={`${ev.direction}:${ev.event}`} className="event-row">
                 <span className="event-dir" data-dir={ev.direction}>
-                  {ev.direction === 'send' ? '→ send' : '← recv'}
+                  {ev.direction === 'send' ? 'send' : 'recv'}
                 </span>
-              </div>
-              <div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500 }}>
-                  {ev.event}
+                <div>
+                  <div className="event-row-type">{ev.event}</div>
+                  {ev.summary && <div className="event-row-desc">{ev.summary}</div>}
                 </div>
-                {ev.summary && (
-                  <div style={{ color: 'var(--ink-muted)', fontSize: 12.5, margin: '2px 0 0' }}>
-                    {ev.summary}
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
     </article>
   );
 }

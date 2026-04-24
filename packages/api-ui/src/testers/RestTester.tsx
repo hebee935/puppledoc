@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Play, Key, Copy } from 'lucide-react';
+import { Play, Key, Copy, Plus, X } from 'lucide-react';
 import type { OpenApiDoc, RequestBody, RestEndpoint, SchemaObj } from '../types';
 import { MethodPill } from '../components/MethodPill';
 import { CodeBlock } from '../components/CodeBlock';
@@ -10,7 +10,12 @@ import { genAxios, genCurl, genFetch } from '../codegen';
 import { buildQueryString, resolvePath, runRest, type RestRunResult } from '../runners/rest';
 import { useStore } from '../store';
 
-type Tab = 'params' | 'body' | 'auth';
+type Tab = 'params' | 'body' | 'headers' | 'auth';
+interface CustomHeader {
+  id: string;
+  name: string;
+  value: string;
+}
 type Lang = 'curl' | 'fetch' | 'axios';
 type BodyKind = 'json' | 'form';
 
@@ -31,6 +36,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
   const op = endpoint.operation;
   const pathParams = useMemo(() => (op.parameters ?? []).filter((p) => p.in === 'path'), [op]);
   const queryParams = useMemo(() => (op.parameters ?? []).filter((p) => p.in === 'query'), [op]);
+  const headerParams = useMemo(() => (op.parameters ?? []).filter((p) => p.in === 'header'), [op]);
   const body = useMemo(() => detectBody(doc, op.requestBody), [doc, op.requestBody]);
   const formFields = useMemo(
     () => (body?.kind === 'form' ? collectFormFields(doc, body.schema) : []),
@@ -47,6 +53,8 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
   const [codeLang, setCodeLang] = useState<Lang>('curl');
   const [paramVals, setParamVals] = useState<Record<string, string>>({});
   const [queryVals, setQueryVals] = useState<Record<string, string>>({});
+  const [headerVals, setHeaderVals] = useState<Record<string, string>>({});
+  const [customHeaders, setCustomHeaders] = useState<CustomHeader[]>([]);
   const [bodyTxt, setBodyTxt] = useState('');
   const [formVals, setFormVals] = useState<Record<string, string | File>>({});
   const [resp, setResp] = useState<RestRunResult | null>(null);
@@ -56,6 +64,8 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
   useEffect(() => {
     setParamVals(buildExampleParams(pathParams));
     setQueryVals(buildExampleParams(queryParams));
+    setHeaderVals(buildExampleParams(headerParams));
+    setCustomHeaders([]);
     if (body?.kind === 'json') {
       const example = buildExampleFromSchema(doc, body.schema);
       setBodyTxt(example === undefined ? '' : JSON.stringify(example, null, 2));
@@ -76,7 +86,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
     setError(null);
     setTab(defaultTab());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint.id, body, formFields, doc]);
+  }, [endpoint.id, body, formFields, doc, headerParams]);
 
   const resolved = resolvePath(endpoint.path, paramVals);
   const qstr = buildQueryString(queryVals);
@@ -92,8 +102,18 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
     }
   }
 
-  const headers: Record<string, string> = {};
-  if (endpoint.auth && token) headers.Authorization = `Bearer ${token}`;
+  const headers = useMemo<Record<string, string>>(() => {
+    const h: Record<string, string> = {};
+    for (const p of headerParams) {
+      const v = headerVals[p.name];
+      if (v) h[p.name] = v;
+    }
+    for (const c of customHeaders) {
+      if (c.name && c.value) h[c.name] = c.value;
+    }
+    if (endpoint.auth && token) h.Authorization = `Bearer ${token}`;
+    return h;
+  }, [headerParams, headerVals, customHeaders, endpoint.auth, token]);
 
   const codeStr = useMemo(() => {
     if (body?.kind === 'form') {
@@ -174,6 +194,14 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
             Body <span className="tab-count">{body.kind === 'form' ? 'form' : 'json'}</span>
           </button>
         )}
+        <button className="tab" data-active={tab === 'headers'} onClick={() => setTab('headers')}>
+          Headers
+          {(headerParams.length + customHeaders.filter((h) => h.name && h.value).length) > 0 && (
+            <span className="tab-count">
+              {headerParams.length + customHeaders.filter((h) => h.name && h.value).length}
+            </span>
+          )}
+        </button>
         {endpoint.auth && (
           <button className="tab" data-active={tab === 'auth'} onClick={() => setTab('auth')}>
             Auth {token && <span className="wss-dot" data-state="connected" style={{ width: 6, height: 6 }} />}
@@ -253,6 +281,94 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
           </div>
         )}
 
+        {tab === 'headers' && (
+          <div className="param-editor">
+            {headerParams.length > 0 && (
+              <>
+                <SectionLabel>Declared</SectionLabel>
+                {headerParams.map((p) => (
+                  <ParamInput
+                    key={p.name}
+                    label={p.name}
+                    required={!!p.required}
+                    placeholder={String(p.example ?? p.schema?.example ?? '')}
+                    value={headerVals[p.name] ?? ''}
+                    onChange={(v) => setHeaderVals((prev) => ({ ...prev, [p.name]: v }))}
+                  />
+                ))}
+              </>
+            )}
+            <SectionLabel style={{ marginTop: headerParams.length ? 12 : 0 }}>Custom</SectionLabel>
+            {customHeaders.map((h) => (
+              <div
+                key={h.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '110px 1fr auto',
+                  gap: 6,
+                  alignItems: 'center',
+                  padding: '6px 0',
+                  borderBottom: '1px solid var(--line-dark)',
+                }}
+              >
+                <input
+                  className="input"
+                  placeholder="X-Request-Id"
+                  value={h.name}
+                  onChange={(e) =>
+                    setCustomHeaders((prev) =>
+                      prev.map((x) => (x.id === h.id ? { ...x, name: e.target.value } : x)),
+                    )
+                  }
+                />
+                <input
+                  className="input"
+                  placeholder="value"
+                  value={h.value}
+                  onChange={(e) =>
+                    setCustomHeaders((prev) =>
+                      prev.map((x) => (x.id === h.id ? { ...x, value: e.target.value } : x)),
+                    )
+                  }
+                />
+                <button
+                  className="btn ghost"
+                  style={{ padding: '4px 6px' }}
+                  onClick={() => setCustomHeaders((prev) => prev.filter((x) => x.id !== h.id))}
+                  aria-label="Remove header"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+            <button
+              className="btn ghost"
+              style={{ marginTop: 8, padding: '6px 10px' }}
+              onClick={() =>
+                setCustomHeaders((prev) => [
+                  ...prev,
+                  { id: `h_${Date.now()}_${prev.length}`, name: '', value: '' },
+                ])
+              }
+            >
+              <Plus size={12} /> Add header
+            </button>
+            {endpoint.auth && token && (
+              <div
+                style={{
+                  marginTop: 12,
+                  fontSize: 11,
+                  color: 'var(--ink-dark-faint)',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                + Authorization: Bearer {token.slice(0, 16)}…{' '}
+                <span style={{ opacity: 0.6 }}>(auto from Auth tab)</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === 'auth' && (
           <div className="param-editor">
             <div style={{ fontSize: 12.5, color: 'var(--ink-dark-muted)', marginBottom: 10 }}>
@@ -321,7 +437,11 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
           {error && (
             <div className="resp-empty">
               <div style={{ color: 'var(--danger)' }}>{error}</div>
-              <div className="hint">Network / CORS error · check your server</div>
+              <div className="hint">
+                {/Latin-1|non-ASCII/.test(error)
+                  ? 'Invalid header value · use ASCII-only characters'
+                  : 'Network / CORS error · check your server'}
+              </div>
             </div>
           )}
           {resp && resp.body !== null && resp.body !== undefined && resp.body !== '' && (

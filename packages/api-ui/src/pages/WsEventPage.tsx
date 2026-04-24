@@ -1,10 +1,11 @@
-import { Lock } from 'lucide-react';
+import { Lock, Play } from 'lucide-react';
 import type { OpenApiDoc, WsEventEndpoint } from '../types';
 import { resolveRef } from '../spec';
 import { MethodPill } from '../components/MethodPill';
 import { SchemaTree } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
 import { buildExampleFromSchema } from '../samples';
+import { useStore } from '../store';
 
 interface Props {
   doc: OpenApiDoc;
@@ -12,50 +13,76 @@ interface Props {
 }
 
 export function WsEventPage({ doc, endpoint }: Props) {
+  const { openDrawer } = useStore();
   const ev = endpoint.event;
   const payloadSchema = resolveRef(doc, ev.payload) ?? ev.payload;
   const replySchema = resolveRef(doc, ev.reply) ?? ev.reply;
-  const exampleFrame = { type: ev.event, ...(buildExampleFromSchema(doc, payloadSchema) ?? {}) };
+  const exampleFrame = { type: ev.event, ...(buildExampleFromSchema(doc, payloadSchema) as object ?? {}) };
   const exampleReply = replySchema ? buildExampleFromSchema(doc, replySchema) : undefined;
 
   return (
-    <article className="endpoint">
-      <div className="ep-header">
-        <MethodPill method={endpoint.method} />
-        <span className="ep-path">
-          <span style={{ color: 'var(--ink-muted)' }}>type:</span> "{ev.event}"
-        </span>
-        {endpoint.auth && (
-          <span className="ep-lock">
-            <Lock size={10} /> auth required
-          </span>
-        )}
-        <span className="event-dir" data-dir={ev.direction} style={{ marginLeft: 'auto' }}>
-          {ev.direction === 'send' ? '→ client → server' : '← server → client'}
-        </span>
-      </div>
-      <h2 className="ep-title">{ev.summary ?? ev.event}</h2>
-      {ev.description && <p className="ep-desc">{ev.description}</p>}
-
-      <div className="section">
-        <div className="section-head">Frame Schema</div>
-        <SchemaTree doc={doc} schema={payloadSchema} />
-      </div>
-
-      <div className="section">
-        <div className="section-head">Example Frame</div>
-        <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
-          <JsonView data={exampleFrame} maxHeight={240} />
+    <article className="endpoint-card">
+      <header className="endpoint-hero">
+        <div className="endpoint-breadcrumb">
+          <span>{endpoint.groupName}</span>
+          <span>›</span>
+          <span>{endpoint.channel.url}</span>
         </div>
-      </div>
-
-      {replySchema && exampleReply !== undefined && (
-        <div className="section">
-          <div className="section-head">← Expected Reply</div>
-          <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
-            <JsonView data={exampleReply} maxHeight={240} />
+        <div className="endpoint-hero-row">
+          <MethodPill method={endpoint.method} />
+          <span className="endpoint-path-static">
+            <span className="path-var">type:</span> "{ev.event}"
+          </span>
+          <span className="event-dir" data-dir={ev.direction}>
+            {ev.direction === 'send' ? 'server → client' : 'client → server'}
+          </span>
+          <div className="hero-actions">
+            {endpoint.auth && (
+              <span className="ep-lock-icon" title="Authentication required">
+                <Lock size={12} />
+              </span>
+            )}
+            <button className="btn primary btn-try" onClick={openDrawer}>
+              <Play size={13} /> Try it
+            </button>
           </div>
         </div>
+        <h1 className="endpoint-title">{ev.summary ?? ev.event}</h1>
+        {ev.description && <p className="endpoint-desc">{ev.description}</p>}
+      </header>
+
+      <section className="card">
+        <header className="card-head">
+          <h3 className="card-title">Frame Schema</h3>
+        </header>
+        <div className="card-body">
+          <SchemaTree doc={doc} schema={payloadSchema} />
+        </div>
+      </section>
+
+      <section className="card">
+        <header className="card-head">
+          <h3 className="card-title">Example Frame</h3>
+        </header>
+        <div className="card-body">
+          <div className="example-block flush">
+            <JsonView data={exampleFrame} maxHeight={240} />
+          </div>
+        </div>
+      </section>
+
+      {replySchema && exampleReply !== undefined && (
+        <section className="card">
+          <header className="card-head">
+            <h3 className="card-title">Expected Reply</h3>
+            <span className="card-subtitle">← server</span>
+          </header>
+          <div className="card-body">
+            <div className="example-block flush">
+              <JsonView data={exampleReply} maxHeight={240} />
+            </div>
+          </div>
+        </section>
       )}
     </article>
   );

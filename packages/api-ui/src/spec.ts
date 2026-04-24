@@ -100,6 +100,7 @@ function makeRestEndpoint(
     title: op.summary ?? path,
     description: op.description,
     auth: isAuthRequired(op),
+    deprecated: op.deprecated,
     groupName,
     operation: op,
   };

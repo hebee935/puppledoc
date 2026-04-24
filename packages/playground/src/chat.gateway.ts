@@ -6,7 +6,7 @@ import {
   type WsResponse,
 } from '@nestjs/websockets';
 import type { Server } from 'ws';
-import { Receive, Send } from '@space/api';
+import { Receive, Send } from '@belle.develop/space-api';
 import {
   ChatAckFrameDto,
   ChatMessageFrameDto,

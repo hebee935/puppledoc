@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Check, Copy, Lock, Play } from 'lucide-react';
 import type { MediaType, OpenApiDoc, Operation, Parameter, RestEndpoint, SchemaObj } from '../types';
 import { resolveRef } from '../spec';
+import { useStore } from '../store';
 import { MethodPill } from '../components/MethodPill';
 import { SchemaTree } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
@@ -12,148 +13,188 @@ interface Props {
 }
 
 export function RestEndpointPage({ doc, endpoint }: Props) {
+  const { openDrawer } = useStore();
   const op = endpoint.operation;
-  const pathParts = endpoint.path.split(/(\{[^}]+\})/g);
 
   const pathParams = (op.parameters ?? []).filter((p) => p.in === 'path');
   const queryParams = (op.parameters ?? []).filter((p) => p.in === 'query');
-  const bodySchema = op.requestBody?.content?.['application/json']?.schema;
+  const headerParams = (op.parameters ?? []).filter((p) => p.in === 'header');
+  const bodyMedia =
+    op.requestBody?.content?.['application/json'] ??
+    op.requestBody?.content?.['multipart/form-data'];
+  const bodySchema = bodyMedia?.schema;
+  const bodyKind = op.requestBody?.content?.['application/json']
+    ? 'application/json'
+    : op.requestBody?.content?.['multipart/form-data']
+      ? 'multipart/form-data'
+      : null;
 
   return (
-    <article className="endpoint">
-      <div className="ep-header">
-        <MethodPill method={endpoint.method} />
-        <span className="ep-path">
-          {pathParts.map((p, i) =>
-            p.startsWith('{') ? (
-              <span key={i} className="path-var">{p}</span>
-            ) : (
-              <span key={i}>{p}</span>
-            ),
-          )}
-        </span>
-        {endpoint.auth && (
-          <span className="ep-lock">
-            <Lock size={10} /> auth required
-          </span>
-        )}
-      </div>
-      {op.summary && <h2 className="ep-title">{op.summary}</h2>}
-      {endpoint.description && (
-        <p
-          className="ep-desc"
-          dangerouslySetInnerHTML={{ __html: renderMarkdownInline(endpoint.description) }}
-        />
-      )}
-
-      <ParamSection title="Path Parameters" doc={doc} params={pathParams} />
-      <ParamSection title="Query Parameters" doc={doc} params={queryParams} />
-
-      {bodySchema && (
-        <div className="section">
-          <div className="section-head">Body</div>
-          <SchemaTree doc={doc} schema={bodySchema} />
+    <article className="endpoint-card">
+      <header className="endpoint-hero">
+        <div className="endpoint-breadcrumb">
+          <span>{endpoint.groupName}</span>
         </div>
-      )}
+        <div className="endpoint-hero-row" data-deprecated={op.deprecated || undefined}>
+          <MethodPill method={endpoint.method} />
+          <PathWithCopy path={endpoint.path} />
+          <div className="hero-actions">
+            {endpoint.auth && (
+              <span className="ep-lock-icon" title="Authentication required">
+                <Lock size={12} />
+              </span>
+            )}
+            <button className="btn primary btn-try" onClick={openDrawer}>
+              <Play size={13} /> Try it
+            </button>
+          </div>
+        </div>
+        {op.summary && (
+          <h1 className="endpoint-title">
+            {op.summary}
+            {op.deprecated && <span className="badge-deprecated">Deprecated</span>}
+          </h1>
+        )}
+        {endpoint.description && (
+          <p
+            className="endpoint-desc"
+            dangerouslySetInnerHTML={{ __html: renderMarkdownInline(endpoint.description) }}
+          />
+        )}
+      </header>
 
-      <Responses doc={doc} responses={op.responses} />
+      <SectionCard title="Path Parameters" hide={!pathParams.length}>
+        <ParamList doc={doc} params={pathParams} />
+      </SectionCard>
+
+      <SectionCard title="Query Parameters" hide={!queryParams.length}>
+        <ParamList doc={doc} params={queryParams} />
+      </SectionCard>
+
+      <SectionCard title="Headers" hide={!headerParams.length}>
+        <ParamList doc={doc} params={headerParams} />
+      </SectionCard>
+
+      <SectionCard
+        title="Request Body"
+        subtitle={bodyKind ?? undefined}
+        hide={!bodySchema}
+      >
+        {bodySchema && <SchemaTree doc={doc} schema={bodySchema} />}
+      </SectionCard>
+
+      <SectionCard title="Responses" hide={!op.responses || Object.keys(op.responses).length === 0}>
+        <Responses doc={doc} responses={op.responses} />
+      </SectionCard>
     </article>
   );
 }
 
-function ParamSection({
+function SectionCard({
   title,
-  doc,
-  params,
+  subtitle,
+  hide,
+  children,
 }: {
   title: string;
-  doc: OpenApiDoc;
-  params: Parameter[];
+  subtitle?: string;
+  hide?: boolean;
+  children: React.ReactNode;
 }) {
-  if (!params.length) return null;
+  if (hide) return null;
   return (
-    <div className="section">
-      <div className="section-head">{title}</div>
-      <div className="schema">
-        {params.map((p) => {
-          const schema = resolveRef(doc, p.schema) ?? p.schema;
-          const typeLabel = deriveTypeLabel(schema);
-          const example = p.example ?? schema?.example;
-          return (
-            <div key={p.name} className="schema-row">
-              <div className="schema-name">
-                <span style={{ width: 14, display: 'inline-block' }} />
-                <span>{p.name}</span>
-                {p.required && <span className="schema-req">required</span>}
-              </div>
-              <div className={`schema-type type-${typeLabel}`}>{typeLabel}</div>
-              <div>
-                {p.description && <div className="schema-note">{p.description}</div>}
-                {example !== undefined && example !== null && (
-                  <div className="schema-example">
-                    <b>e.g.</b>{' '}
-                    {typeof example === 'object' ? JSON.stringify(example) : String(example)}
-                  </div>
-                )}
-              </div>
+    <section className="card">
+      <header className="card-head">
+        <h3 className="card-title">{title}</h3>
+        {subtitle && <span className="card-subtitle">{subtitle}</span>}
+      </header>
+      <div className="card-body">{children}</div>
+    </section>
+  );
+}
+
+function PathWithCopy({ path }: { path: string }) {
+  const [copied, setCopied] = useState(false);
+  const parts = path.split(/(\{[^}]+\})/g);
+  return (
+    <button
+      className="endpoint-path"
+      onClick={() => {
+        void navigator.clipboard?.writeText(path);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      }}
+      title="Copy path"
+    >
+      {parts.map((p, i) =>
+        p.startsWith('{') ? (
+          <span key={i} className="path-var">{p}</span>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+      <span className="endpoint-path-copy">
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </span>
+    </button>
+  );
+}
+
+function ParamList({ doc, params }: { doc: OpenApiDoc; params: Parameter[] }) {
+  return (
+    <div className="schema">
+      {params.map((p) => {
+        const schema = resolveRef(doc, p.schema) ?? p.schema;
+        const typeLabel = deriveTypeLabel(schema);
+        const example = p.example ?? schema?.example;
+        return (
+          <div key={p.name} className="schema-row">
+            <div className="schema-name">
+              <span style={{ width: 14, display: 'inline-block' }} />
+              <span>{p.name}</span>
+              {p.required && <span className="schema-req">required</span>}
             </div>
-          );
-        })}
-      </div>
+            <div className={`schema-type type-${typeLabel}`}>{typeLabel}</div>
+            <div>
+              {p.description && <div className="schema-note">{p.description}</div>}
+              {example !== undefined && example !== null && (
+                <div className="schema-example">
+                  <b>e.g.</b>{' '}
+                  {typeof example === 'object' ? JSON.stringify(example) : String(example)}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function Responses({
-  doc,
-  responses,
-}: {
-  doc: OpenApiDoc;
-  responses: Operation['responses'];
-}) {
+function Responses({ doc, responses }: { doc: OpenApiDoc; responses: Operation['responses'] }) {
   const entries = Object.entries(responses ?? {});
   const [openIdx, setOpenIdx] = useState(0);
   if (!entries.length) return null;
   const [, current] = entries[openIdx] ?? [];
-
   return (
-    <div className="section">
-      <div className="section-head">Responses</div>
-      {entries.map(([status, r], i) => {
-        const kind = status[0] ?? '';
-        return (
-          <div
+    <>
+      <div className="response-tabs">
+        {entries.map(([status, r], i) => (
+          <button
             key={status}
-            className="response-block"
+            className="response-tab"
+            data-active={openIdx === i}
             onClick={() => setOpenIdx(i)}
-            style={{ borderColor: openIdx === i ? 'var(--ink)' : 'var(--line)' }}
           >
-            <span className="status-chip" data-kind={kind}>{status}</span>
-            <span style={{ color: 'var(--ink-muted)', fontSize: 12.5 }}>
-              {r.description ?? kindLabel(kind)}
-            </span>
-            <span style={{ flex: 1 }} />
-            {r.content?.['application/json'] && (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-faint)' }}>
-                application/json
-              </span>
-            )}
-          </div>
-        );
-      })}
+            <span className="status-chip" data-kind={status[0]}>{status}</span>
+            <span className="response-tab-label">{r.description ?? kindLabel(status[0] ?? '')}</span>
+          </button>
+        ))}
+      </div>
       {current?.content?.['application/json'] && (
         <ResponseBody doc={doc} media={current.content['application/json']} />
       )}
-      {current?.headers && Object.keys(current.headers).length > 0 && (
-        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--ink-muted)', fontFamily: 'var(--font-mono)' }}>
-          {Object.entries(current.headers).map(([k, v]) => (
-            <div key={k}>
-              <span style={{ color: 'var(--ink)' }}>{k}:</span> {v.description ?? ''}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -163,22 +204,11 @@ function ResponseBody({ doc, media }: { doc: OpenApiDoc; media: MediaType }) {
   const example = media.example ?? firstValue(media.examples)?.value ?? resolvedSchema?.example;
   if (!hasSchema && example === undefined) return null;
   return (
-    <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+    <div className="response-body">
       {hasSchema && resolvedSchema && <ResponseSchema doc={doc} schema={resolvedSchema} />}
       {example !== undefined && (
-        <div style={{ border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
-          <div
-            style={{
-              padding: '6px 10px',
-              background: 'oklch(96% 0.005 80)',
-              fontSize: 11,
-              color: 'var(--ink-muted)',
-              fontFamily: 'var(--font-mono)',
-              borderBottom: '1px solid var(--line)',
-            }}
-          >
-            Example
-          </div>
+        <div className="example-block">
+          <div className="example-head">Example</div>
           <JsonView data={example} maxHeight={280} />
         </div>
       )}
@@ -187,13 +217,12 @@ function ResponseBody({ doc, media }: { doc: OpenApiDoc; media: MediaType }) {
 }
 
 function ResponseSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
-  // Arrays: show the item schema's properties, labeled.
   if (schema.type === 'array' && schema.items) {
     const item = resolveRef(doc, schema.items) ?? schema.items;
     if (item.properties) {
       return (
         <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--ink-muted)', marginBottom: 4 }}>
+          <div className="array-label">
             array&lt;{item.title ?? item.type ?? 'object'}&gt;
           </div>
           <SchemaTree doc={doc} schema={item} />
@@ -202,9 +231,8 @@ function ResponseSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj })
     }
   }
   if (schema.properties) return <SchemaTree doc={doc} schema={schema} />;
-  // Primitives / no properties — inline one-liner.
   return (
-    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-muted)' }}>
+    <div className="primitive-type">
       {schema.type ?? 'any'}
       {schema.format ? ` (${schema.format})` : ''}
     </div>
@@ -232,7 +260,6 @@ function deriveTypeLabel(schema: SchemaObj | undefined): string {
 }
 
 function renderMarkdownInline(s: string): string {
-  // Minimal: **bold** and `code`. Escape other HTML first.
   const escaped = s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
   return escaped
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')

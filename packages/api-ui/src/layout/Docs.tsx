@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useStore } from '../store';
 import { flattenEndpoints } from '../spec';
+import { OverviewPage } from '../pages/OverviewPage';
 import { RestEndpointPage } from '../pages/RestEndpointPage';
 import { WsConnectionPage } from '../pages/WsConnectionPage';
 import { WsEventPage } from '../pages/WsEventPage';
@@ -23,34 +24,35 @@ export function Docs() {
 
   return (
     <main className="docs" ref={scrollRef}>
-      <header className="docs-header">
-        <div className="docs-title-row">
-          <h1 className="docs-title">{doc.info?.title ?? 'API'}</h1>
-          {doc.info?.version && <span className="docs-version">{doc.info.version}</span>}
-          <span className="docs-version">OpenAPI {doc.openapi ?? '3.1'}</span>
-        </div>
-        {doc.info?.description && <p className="docs-sub">{doc.info.description}</p>}
-      </header>
+      <div className="docs-inner">
+        {!active && <OverviewPage doc={doc} />}
 
-      {active?.kind === 'rest' && <RestEndpointPage doc={doc} endpoint={active} />}
-      {active?.kind === 'ws-connection' && <WsConnectionPage doc={doc} endpoint={active} />}
-      {active?.kind === 'ws-event' && <WsEventPage doc={doc} endpoint={active} />}
+        {active?.kind === 'rest' && <RestEndpointPage doc={doc} endpoint={active} />}
+        {active?.kind === 'ws-connection' && <WsConnectionPage doc={doc} endpoint={active} />}
+        {active?.kind === 'ws-event' && <WsEventPage doc={doc} endpoint={active} />}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '24px 40px 48px', gap: 12 }}>
-        <button
-          className="foot-btn"
-          style={{ flex: '0 0 auto', padding: '10px 14px', visibility: prev ? 'visible' : 'hidden' }}
-          onClick={() => prev && selectEndpoint(prev.id)}
-        >
-          <ArrowLeft size={12} /> {prev?.title}
-        </button>
-        <button
-          className="foot-btn"
-          style={{ flex: '0 0 auto', padding: '10px 14px', visibility: next ? 'visible' : 'hidden' }}
-          onClick={() => next && selectEndpoint(next.id)}
-        >
-          {next?.title} <ArrowRight size={12} />
-        </button>
+        {active && (
+          <nav className="endpoint-nav">
+            {prev ? (
+              <button className="endpoint-nav-btn" onClick={() => selectEndpoint(prev.id)}>
+                <ArrowLeft size={12} />
+                <span>
+                  <span className="endpoint-nav-label">Previous</span>
+                  <span className="endpoint-nav-title">{prev.title}</span>
+                </span>
+              </button>
+            ) : <div />}
+            {next ? (
+              <button className="endpoint-nav-btn endpoint-nav-right" onClick={() => selectEndpoint(next.id)}>
+                <span>
+                  <span className="endpoint-nav-label">Next</span>
+                  <span className="endpoint-nav-title">{next.title}</span>
+                </span>
+                <ArrowRight size={12} />
+              </button>
+            ) : <div />}
+          </nav>
+        )}
       </div>
     </main>
   );

@@ -19,6 +19,7 @@ export interface Operation {
   summary?: string;
   description?: string;
   tags?: string[];
+  deprecated?: boolean;
   parameters?: Parameter[];
   requestBody?: RequestBody;
   responses?: Record<string, Response>;
@@ -96,11 +97,12 @@ export type EndpointKind = 'rest' | 'ws-connection' | 'ws-event';
 export interface BaseEndpoint {
   id: string;
   kind: EndpointKind;
-  method: string; // 'GET' | 'POST' | ... | 'WSS' | 'WSS-UP' | 'WSS-DOWN'
+  method: string; // 'GET' | 'POST' | ... | 'WSS' | 'SEND' | 'RECV'
   path: string;   // REST path or ws url or `type: "event.name"`
   title: string;  // summary / event name
   description?: string;
   auth: boolean;
+  deprecated?: boolean;
   groupName: string;
   groupDescription?: string;
 }

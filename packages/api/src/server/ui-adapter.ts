@@ -8,7 +8,7 @@ import type { SpaceApiUiOptions } from '../metadata/types.js';
 const requireFrom = createRequire(import.meta.url);
 
 /**
- * Serve the `@space/api-ui` static bundle under `basePath` on the Nest http adapter.
+ * Serve the `@belle.develop/space-ui` static bundle under `basePath` on the Nest http adapter.
  * Also exposes `openapi.json` and injects the UI options into `index.html` so the
  * SPA boots with the right title / servers without an extra round trip.
  */
@@ -44,6 +44,20 @@ export function serveUi(
 
   // Hash-named assets and any other static files.
   mountStatic(http, `${prefix}/assets`, join(uiDir, 'assets'));
+
+  // Root-level static files (favicon, robots, etc.) — explicit allowlist to avoid
+  // accidentally exposing index.html or other internals via a generic glob.
+  for (const name of ['favicon.svg', 'favicon.ico', 'favicon.png', 'robots.txt', 'space.png']) {
+    const abs = join(uiDir, name);
+    if (!existsSync(abs)) continue;
+    http.get(`${prefix}/${name}`, (_req: unknown, res: any) => {
+      const ext = name.slice(name.lastIndexOf('.'));
+      res.setHeader?.('Content-Type', contentType(ext));
+      res.setHeader?.('Cache-Control', 'public, max-age=86400');
+      const body = readFileSync(abs);
+      res.send ? res.send(body) : res.end(body);
+    });
+  }
 }
 
 function sendHtml(res: any, html: string) {
@@ -58,13 +72,13 @@ function normalizePath(p: string): string {
 
 function resolveUiIndex(): string {
   try {
-    return requireFrom.resolve('@space/api-ui/dist/index.html');
+    return requireFrom.resolve('@belle.develop/space-ui/dist/index.html');
   } catch {
     // If the UI hasn't been built yet (monorepo dev), fall back to an inline stub.
     const stub = join(process.cwd(), 'node_modules', '@space', 'api-ui', 'dist', 'index.html');
     if (existsSync(stub)) return stub;
     throw new Error(
-      '[@space/api] Could not locate @space/api-ui/dist/index.html. Run `pnpm --filter @space/api-ui build` first.',
+      '[@belle.develop/space-api] Could not locate @belle.develop/space-ui/dist/index.html. Run `pnpm --filter @belle.develop/space-ui build` first.',
     );
   }
 }
@@ -108,6 +122,7 @@ function contentType(ext: string): string {
     case '.js': return 'application/javascript; charset=utf-8';
     case '.css': return 'text/css; charset=utf-8';
     case '.svg': return 'image/svg+xml';
+    case '.png': return 'image/png';
     case '.woff2': return 'font/woff2';
     case '.woff': return 'font/woff';
     case '.json': return 'application/json; charset=utf-8';
