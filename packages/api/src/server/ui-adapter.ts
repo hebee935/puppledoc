@@ -1,14 +1,16 @@
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { HttpServer } from '@nestjs/common';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import type { SpaceApiUiOptions } from '../metadata/types.js';
 
 const requireFrom = createRequire(import.meta.url);
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Serve the `@belle.develop/space-ui` static bundle under `basePath` on the Nest http adapter.
+ * Serve the bundled docs UI under `basePath` on the Nest http adapter.
  * Also exposes `openapi.json` and injects the UI options into `index.html` so the
  * SPA boots with the right title / servers without an extra round trip.
  */
@@ -71,14 +73,15 @@ function normalizePath(p: string): string {
 }
 
 function resolveUiIndex(): string {
+  // Published layout: UI copied into ./ui at publish time, sits alongside dist/.
+  const bundled = join(HERE, '..', 'ui', 'index.html');
+  if (existsSync(bundled)) return bundled;
+  // Workspace dev layout: space-ui is a sibling package resolved via pnpm.
   try {
-    return requireFrom.resolve('@belle.develop/space-ui/dist/index.html');
+    return requireFrom.resolve('@puppledoc/space-ui/dist/index.html');
   } catch {
-    // If the UI hasn't been built yet (monorepo dev), fall back to an inline stub.
-    const stub = join(process.cwd(), 'node_modules', '@space', 'api-ui', 'dist', 'index.html');
-    if (existsSync(stub)) return stub;
     throw new Error(
-      '[@belle.develop/space-api] Could not locate @belle.develop/space-ui/dist/index.html. Run `pnpm --filter @belle.develop/space-ui build` first.',
+      '[@puppledoc/nestjs-api-reference] Could not locate the UI bundle. In development, run `pnpm --filter @puppledoc/space-ui build`; if this is an installed package, reinstall — the ./ui directory is missing.',
     );
   }
 }

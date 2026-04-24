@@ -1,6 +1,6 @@
-# `@belle.develop/space-ui`
+# `@puppledoc/space-ui`
 
-Static UI bundle for [`@belle.develop/space-api`](../api). Normally consumed transitively — `@belle.develop/space-api` takes it as a dependency and serves the `dist/` directory directly.
+Static UI bundle for [`@puppledoc/nestjs-api-reference`](../api). Normally consumed transitively — `@puppledoc/nestjs-api-reference` takes it as a dependency and serves the `dist/` directory directly.
 
 Do not import this package from application code.
 
@@ -8,7 +8,7 @@ Do not import this package from application code.
 
 ```
 dist/
-├── index.html        # entry, bootstrap script gets injected by @belle.develop/space-api
+├── index.html        # entry, bootstrap script gets injected by @puppledoc/nestjs-api-reference
 └── assets/
     ├── index-*.js    # React bundle
     └── index-*.css

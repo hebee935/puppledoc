@@ -23,7 +23,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { Send } from '@belle.develop/space-api';
+import { Send } from '@puppledoc/nestjs-api-reference';
 import { ChatGateway } from './chat.gateway';
 import {
   AttachmentDto,

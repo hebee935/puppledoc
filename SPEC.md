@@ -1,8 +1,8 @@
-# `@belle.develop/space-api` — Implementation Spec
+# `@puppledoc/nestjs-api-reference` — Implementation Spec
 
 NestJS 플러그인. `@nestjs/swagger`가 만드는 OpenAPI 3.1 문서에 WebSocket 이벤트 메타를 덧붙여(`x-websocket` extension), Scalar-like UI에서 **REST + WS**를 한 화면에서 문서화하고 **실제 요청**을 테스트한다.
 
-- 배포: `@belle.develop/space-api` (core) + `@belle.develop/space-ui` (정적 번들, core가 내부적으로 서빙)
+- 배포: `@puppledoc/nestjs-api-reference` (core) + `@puppledoc/space-ui` (정적 번들, core가 내부적으로 서빙)
 - 레이아웃/디자인 레퍼런스: `./DESIGN.md`
 - 개발 전제: `pnpm`, TypeScript strict, ESM+CJS dual.
 
@@ -12,7 +12,7 @@ NestJS 플러그인. `@nestjs/swagger`가 만드는 OpenAPI 3.1 문서에 WebSoc
 
 1. **Small surface** — 퍼블릭 API는 `@Receive`, `@Send`, `SpaceApiModule.setup()` 세 개가 전부. 나머지는 internal.
 2. **Mirror SwaggerModule** — Nest 개발자가 기존 지식 그대로 쓸 수 있게 API 모양 그대로 따라간다.
-3. **Headless core + static UI** — core는 JSON spec + express static만 책임지고, UI는 번들된 정적 파일(`@belle.develop/space-ui/dist`)을 서빙. UI 교체/커스텀 가능.
+3. **Headless core + static UI** — core는 JSON spec + express static만 책임지고, UI는 번들된 정적 파일(`@puppledoc/space-ui/dist`)을 서빙. UI 교체/커스텀 가능.
 4. **실제 요청만** — 시뮬레이션 모드는 v0.1 범위 밖. 브라우저가 실제 fetch/WebSocket을 연다.
 5. **No clever metaprogramming** — 데코레이터는 `Reflect.defineMetadata`로 배열 push만. 스캐너가 `DiscoveryService`로 순회.
 
@@ -27,7 +27,7 @@ space-api/
 ├── tsconfig.base.json
 ├── package.json
 ├── packages/
-│   ├── api/                  # @belle.develop/space-api  (core, NestJS 플러그인)
+│   ├── api/                  # @puppledoc/nestjs-api-reference  (core, NestJS 플러그인)
 │   │   ├── src/
 │   │   │   ├── index.ts
 │   │   │   ├── decorators/
@@ -47,7 +47,7 @@ space-api/
 │   │   │       └── ui-adapter.ts    # express/fastify 정적 서빙
 │   │   ├── package.json
 │   │   └── tsup.config.ts
-│   ├── api-ui/               # @belle.develop/space-ui  (React SPA, 정적 번들)
+│   ├── api-ui/               # @puppledoc/space-ui  (React SPA, 정적 번들)
 │   │   ├── src/
 │   │   │   ├── main.tsx
 │   │   │   ├── App.tsx
@@ -91,7 +91,7 @@ space-api/
 
 ---
 
-## 2. Core 패키지 (`@belle.develop/space-api`)
+## 2. Core 패키지 (`@puppledoc/nestjs-api-reference`)
 
 ### 2.1 퍼블릭 API
 
@@ -217,7 +217,7 @@ export class SpaceApiModule {
     const httpAdapter = app.getHttpAdapter();
     // JSON spec
     httpAdapter.get(`/${path}/openapi.json`, (_, res) => res.json(document));
-    // UI (static from @belle.develop/space-ui/dist)
+    // UI (static from @puppledoc/space-ui/dist)
     serveUi(httpAdapter, path);
   }
 }
@@ -254,7 +254,7 @@ express와 fastify 둘 다 지원 — `httpAdapter.getType()`으로 분기.
 ```ts
 // server/ui-adapter.ts
 export function serveUi(httpAdapter: HttpAdapterHost['httpAdapter'], basePath: string) {
-  const uiDir = require.resolve('@belle.develop/space-ui/dist/index.html').replace('/index.html', '');
+  const uiDir = require.resolve('@puppledoc/space-ui/dist/index.html').replace('/index.html', '');
   if (httpAdapter.getType() === 'express') {
     const express = require('express');
     httpAdapter.use(`/${basePath}`, express.static(uiDir, { index: 'index.html' }));
@@ -268,7 +268,7 @@ UI는 부팅 시 `/{basePath}/openapi.json`을 fetch해서 렌더.
 
 ---
 
-## 3. UI 패키지 (`@belle.develop/space-ui`)
+## 3. UI 패키지 (`@puppledoc/space-ui`)
 
 React + Vite로 빌드하여 `dist/` 정적 산출물을 core가 번들 포함해 배포. 디자인 토큰/레이아웃은 `./DESIGN.md` 참조.
 
@@ -387,13 +387,13 @@ export const genCurl = (r: RestRequest): string => [
 
 ## 4. 빌드 & 배포
 
-### 4.1 core (`@belle.develop/space-api`)
+### 4.1 core (`@puppledoc/nestjs-api-reference`)
 
 - `tsup`으로 ESM+CJS+d.ts 동시 출력.
 - `package.json`:
   ```json
   {
-    "name": "@belle.develop/space-api",
+    "name": "@puppledoc/nestjs-api-reference",
     "main": "./dist/index.cjs",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
@@ -406,13 +406,13 @@ export const genCurl = (r: RestRequest): string => [
       "reflect-metadata": "^0.2"
     },
     "dependencies": {
-      "@belle.develop/space-ui": "workspace:*"
+      "@puppledoc/space-ui": "workspace:*"
     }
   }
   ```
-- `@belle.develop/space-ui`는 **dependency**로 들고, publish 시점에 `workspace:*` → 실제 버전으로 치환(pnpm이 자동 처리).
+- `@puppledoc/space-ui`는 **dependency**로 들고, publish 시점에 `workspace:*` → 실제 버전으로 치환(pnpm이 자동 처리).
 
-### 4.2 ui (`@belle.develop/space-ui`)
+### 4.2 ui (`@puppledoc/space-ui`)
 
 - Vite의 library 모드가 아니라 **SPA 빌드** → `dist/index.html` + `dist/assets/*`.
 - `package.json`의 `files: ["dist"]`, `exports` 필드는 `./dist/*` 노출.
@@ -431,7 +431,7 @@ export const genCurl = (r: RestRequest): string => [
 ```bash
 pnpm install
 pnpm -r build                         # 전체 빌드
-pnpm --filter @belle.develop/space-ui dev       # UI 개발 (Vite dev + 목 OpenAPI)
+pnpm --filter @puppledoc/space-ui dev       # UI 개발 (Vite dev + 목 OpenAPI)
 pnpm --filter playground start:dev    # NestJS 샘플 (실제 WS/REST 동작)
 ```
 

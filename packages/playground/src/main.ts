@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder } from '@nestjs/swagger';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { SpaceApiModule } from '@belle.develop/space-api';
+import { SpaceApiModule } from '@puppledoc/nestjs-api-reference';
 import { AppModule } from './app.module';
 
 async function bootstrap() {

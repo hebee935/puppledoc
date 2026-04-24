@@ -1,6 +1,6 @@
 # Changesets
 
-Use `pnpm changeset` to record a version bump for an upcoming release. `@belle.develop/space-api` and `@belle.develop/space-ui` are pinned to the same version ("fixed" group) — a bump on one bumps the other automatically.
+Use `pnpm changeset` to record a version bump for an upcoming release. `@puppledoc/nestjs-api-reference` and `@puppledoc/space-ui` are pinned to the same version ("fixed" group) — a bump on one bumps the other automatically.
 
 Release flow:
 

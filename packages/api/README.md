@@ -1,11 +1,11 @@
-# `@belle.develop/space-api`
+# `@puppledoc/nestjs-api-reference`
 
 NestJS plugin that extends `@nestjs/swagger` with WebSocket documentation (`x-websocket` OpenAPI extension) and serves a Scalar-like testing UI for both REST and WS.
 
 ## Install
 
 ```bash
-pnpm add @belle.develop/space-api
+pnpm add @puppledoc/nestjs-api-reference
 ```
 
 Peers: `@nestjs/common`, `@nestjs/core`, `@nestjs/swagger`, `@nestjs/websockets`, `reflect-metadata`.
@@ -16,7 +16,7 @@ Peers: `@nestjs/common`, `@nestjs/core`, `@nestjs/swagger`, `@nestjs/websockets`
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder } from '@nestjs/swagger';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { SpaceApiModule } from '@belle.develop/space-api';
+import { SpaceApiModule } from '@puppledoc/nestjs-api-reference';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -49,7 +49,7 @@ Browse `http://localhost:3000/docs`. The enriched OpenAPI JSON is at `/docs/open
 
 ```ts
 import { MessageBody, SubscribeMessage, WebSocketGateway, WsResponse } from '@nestjs/websockets';
-import { Receive, Send } from '@belle.develop/space-api';
+import { Receive, Send } from '@puppledoc/nestjs-api-reference';
 import { ChatMessageDto, ChatAckDto, PresenceDto } from './dto';
 
 @WebSocketGateway({ path: '/realtime' })

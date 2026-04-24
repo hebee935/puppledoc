@@ -1,7 +1,11 @@
 name: Publish
 
-# Manual one-shot publish via Trusted Publishing (OIDC).
-# Configure the Trusted Publisher on npmjs.com for each package:
+# Manual publish via Trusted Publishing (OIDC). The UI is bundled inside
+# @puppledoc/nestjs-api-reference at publish time, so only one package
+# is pushed to the registry.
+#
+# Configure the Trusted Publisher for @puppledoc/nestjs-api-reference on
+# npmjs.com before running this workflow:
 #   Repository: hebee935/space
 #   Workflow filename: publish.yml
 #   Environment: (leave empty)
@@ -37,9 +41,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm -w turbo run build --filter='!playground'
 
-      # space-api depends on space-ui via workspace:*, so publish ui first.
-      - run: pnpm publish --access public --no-git-checks --provenance
-        working-directory: packages/api-ui
-
+      # prepublishOnly re-runs `tsup` and copies ../api-ui/dist into ./ui so
+      # the tarball ships with the bundled docs UI.
       - run: pnpm publish --access public --no-git-checks --provenance
         working-directory: packages/api

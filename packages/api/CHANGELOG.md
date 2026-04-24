@@ -1,4 +1,4 @@
-# @belle.develop/space-api
+# @puppledoc/nestjs-api-reference
 
 ## 1.0.0
 
@@ -9,4 +9,4 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @belle.develop/space-ui@1.0.0
+  - @puppledoc/space-ui@1.0.0

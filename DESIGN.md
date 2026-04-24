@@ -1,4 +1,4 @@
-# `@belle.develop/space-ui` — Design Spec
+# `@puppledoc/space-ui` — Design Spec
 
 레이아웃·디자인 토큰. 수치는 그대로 CSS로 옮겨 쓸 수 있도록 확정값으로 적는다. (레퍼런스: Lumen API Docs mockup)
 

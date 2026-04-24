@@ -19,10 +19,6 @@ importers:
         version: 5.9.3
 
   packages/api:
-    dependencies:
-      '@belle.develop/space-ui':
-        specifier: workspace:*
-        version: link:../api-ui
     devDependencies:
       '@nestjs/common':
         specifier: ^10.4.15
@@ -39,6 +35,9 @@ importers:
       '@nestjs/websockets':
         specifier: ^10.4.15
         version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@puppledoc/space-ui':
+        specifier: workspace:*
+        version: link:../api-ui
       '@types/express':
         specifier: ^4.17.21
         version: 4.17.25
@@ -93,9 +92,6 @@ importers:
 
   packages/playground:
     dependencies:
-      '@belle.develop/space-api':
-        specifier: workspace:*
-        version: link:../api
       '@nestjs/common':
         specifier: ^10.4.15
         version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -114,6 +110,9 @@ importers:
       '@nestjs/websockets':
         specifier: ^10.4.15
         version: 10.4.22(@nestjs/common@10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.22)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@puppledoc/nestjs-api-reference':
+        specifier: workspace:*
+        version: link:../api
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1

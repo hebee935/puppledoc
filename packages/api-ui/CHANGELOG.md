@@ -1,4 +1,4 @@
-# @belle.develop/space-ui
+# @puppledoc/space-ui
 
 ## 1.0.0
 
