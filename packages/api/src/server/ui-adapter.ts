@@ -51,7 +51,16 @@ export function serveUi(
 
   // Root-level static files (favicon, robots, etc.) — explicit allowlist to avoid
   // accidentally exposing index.html or other internals via a generic glob.
-  for (const name of ['favicon.svg', 'favicon.ico', 'favicon.png', 'robots.txt', 'space.png']) {
+  for (const name of [
+    'favicon.ico',
+    'favicon-16x16.png',
+    'favicon-32x32.png',
+    'apple-touch-icon.png',
+    'android-chrome-192x192.png',
+    'android-chrome-512x512.png',
+    'site.webmanifest',
+    'robots.txt',
+  ]) {
     const abs = join(uiDir, name);
     if (!existsSync(abs)) continue;
     http.get(`${prefix}/${name}`, (_req: unknown, res: any) => {
@@ -129,6 +138,8 @@ function contentType(ext: string): string {
     case '.css': return 'text/css; charset=utf-8';
     case '.svg': return 'image/svg+xml';
     case '.png': return 'image/png';
+    case '.ico': return 'image/x-icon';
+    case '.webmanifest': return 'application/manifest+json';
     case '.woff2': return 'font/woff2';
     case '.woff': return 'font/woff';
     case '.json': return 'application/json; charset=utf-8';

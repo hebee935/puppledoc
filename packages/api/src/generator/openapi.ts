@@ -4,6 +4,7 @@ import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec
 import { scanWsChannels } from '../scanner/ws.scanner.js';
 import type { WsChannelDoc, WsEventDoc, XWebsocketExtension } from '../metadata/types.js';
 import { registerPayload } from './schema.js';
+import { resolveConnHandshake } from './conn.js';
 
 /**
  * Enrich an OpenAPI document (produced by `SwaggerModule.createDocument`) with
@@ -36,6 +37,7 @@ export async function enrichWithWebsocket(
           : undefined,
       });
     }
+    const conn = await resolveConnHandshake(ch.conn);
     wsChannels.push({
       name: ch.name,
       // Nest gateways set either `path` (raw ws adapter) or `namespace`
@@ -43,7 +45,7 @@ export async function enrichWithWebsocket(
       url: ch.path ?? ch.namespace ?? `/${ch.name.toLowerCase()}`,
       namespace: ch.namespace,
       events,
-      conn: ch.conn,
+      conn,
     });
   }
 

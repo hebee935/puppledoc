@@ -25,7 +25,7 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
       <button className="topbar-brand" onClick={goOverview} aria-label="Overview">
         <img
           className="brand-mark brand-mark-sm"
-          src={`${bootstrap.basePath || ''}/space.png`}
+          src={`${bootstrap.basePath || ''}/android-chrome-192x192.png`}
           alt=""
         />
         <span className="topbar-title">{title}</span>

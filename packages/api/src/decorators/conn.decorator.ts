@@ -5,25 +5,31 @@ import {
   SPACE_API_WS_CONN_HEADER,
   SPACE_API_WS_CONN_QUERY,
 } from '../metadata/keys.js';
-import type { ConnInputOptions, ConnOptions } from '../metadata/types.js';
+import type { ConnInputDecl, ConnOptions } from '../metadata/types.js';
 
 /**
- * Document the WebSocket handshake on the gateway's `handleConnection` method —
- * mirrors `@ApiQuery` / `@ApiHeader`, which decorate the controller method that
- * receives the request rather than the class itself.
+ * Document the WebSocket handshake on the gateway's `handleConnection` method.
+ * Mirrors `@nestjs/swagger`'s per-input pattern (`@ApiQuery`, `@ApiHeader`)
+ * — apply once per documented input.
  *
- * Use `@Conn` for an overall description, then repeat the per-input decorators
- * once per documented field. Apply the whole stack to the method that
- * implements the `OnGatewayConnection` lifecycle hook.
+ * Each per-input decorator accepts three forms:
+ *  - Inline: `{ name: 'token', required: true, description: '...' }`
+ *  - DTO class shorthand: `(SomeDto)` — expanded via `@ApiProperty` metadata
+ *  - DTO class explicit: `{ type: SomeDto }` — same as the shorthand
  *
  * ```ts
+ * class HandshakeQueryDto {
+ *   @ApiProperty({ description: 'JWT bearer.', example: 'eyJ...' })
+ *   token!: string;
+ *   @ApiProperty({ description: 'Workspace slug.' })
+ *   workspace!: string;
+ * }
+ *
  * @WebSocketGateway({ namespace: '/chat' })
  * export class ChatGateway implements OnGatewayConnection {
  *   @Conn({ description: 'Authenticate with a workspace-scoped JWT.' })
- *   @ConnQuery({ name: 'token', required: true, description: 'JWT bearer.' })
- *   @ConnQuery({ name: 'workspace', required: true })
- *   @ConnHeader({ name: 'Authorization', description: 'Bearer <jwt> for non-browser clients.' })
- *   @ConnAuth({ name: 'token', required: true, description: 'socket.io handshake.auth payload.' })
+ *   @ConnQuery(HandshakeQueryDto)
+ *   @ConnHeader({ name: 'Authorization', description: 'Bearer <jwt>.' })
  *   async handleConnection(client: Socket) {}
  * }
  * ```
@@ -33,32 +39,32 @@ export const Conn = (opts: ConnOptions = {}): MethodDecorator =>
     Reflect.defineMetadata(SPACE_API_WS_CONN, opts, target.constructor, propertyKey);
   };
 
-/** Declare a handshake URL query param. Repeat the decorator per param. */
-export const ConnQuery = (opts: ConnInputOptions): MethodDecorator =>
-  pushTo(SPACE_API_WS_CONN_QUERY, opts);
+/** Declare a handshake URL query param. Pass an inline field decl or a DTO class. */
+export const ConnQuery = (decl: ConnInputDecl): MethodDecorator =>
+  pushTo(SPACE_API_WS_CONN_QUERY, decl);
 
 /**
  * Declare a header expected on the upgrade. Browsers can't set arbitrary
  * headers on a WebSocket upgrade — these are documented for non-browser
  * clients (curl, wscat, native ws libraries) and socket.io's `extraHeaders`.
  */
-export const ConnHeader = (opts: ConnInputOptions): MethodDecorator =>
-  pushTo(SPACE_API_WS_CONN_HEADER, opts);
+export const ConnHeader = (decl: ConnInputDecl): MethodDecorator =>
+  pushTo(SPACE_API_WS_CONN_HEADER, decl);
 
 /**
  * Declare a field on socket.io's `client.handshake.auth` payload.
  * Ignored by clients using the raw WebSocket protocol.
  */
-export const ConnAuth = (opts: ConnInputOptions): MethodDecorator =>
-  pushTo(SPACE_API_WS_CONN_AUTH, opts);
+export const ConnAuth = (decl: ConnInputDecl): MethodDecorator =>
+  pushTo(SPACE_API_WS_CONN_AUTH, decl);
 
-function pushTo(key: symbol, opts: ConnInputOptions): MethodDecorator {
+function pushTo(key: symbol, decl: ConnInputDecl): MethodDecorator {
   return (target, propertyKey) => {
     const existing =
       (Reflect.getOwnMetadata(key, target.constructor, propertyKey) as
-        | ConnInputOptions[]
+        | ConnInputDecl[]
         | undefined) ?? [];
     // Method decorators evaluate bottom-up: prepend so source order is preserved.
-    Reflect.defineMetadata(key, [opts, ...existing], target.constructor, propertyKey);
+    Reflect.defineMetadata(key, [decl, ...existing], target.constructor, propertyKey);
   };
 }

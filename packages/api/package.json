@@ -1,6 +1,6 @@
 {
   "name": "@puppledoc/nestjs-api-reference",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "NestJS API reference: OpenAPI 3.1 + x-websocket extension with a bundled Scalar-like docs/test UI",
   "keywords": [
     "nestjs",

@@ -11,8 +11,8 @@ import {
   SPACE_API_WS_EVENTS,
 } from '../metadata/keys.js';
 import type {
-  ConnHandshake,
-  ConnInputOptions,
+  ConnHandshakeRaw,
+  ConnInputDecl,
   ConnOptions,
   WsChannelMeta,
   WsEventMeta,
@@ -108,21 +108,16 @@ interface GatewayMeta {
   conn?: ConnHandshake;
 }
 
-function readConnHandshake(ctor: Type<unknown>): ConnHandshake | undefined {
+function readConnHandshake(ctor: Type<unknown>): ConnHandshakeRaw | undefined {
   // Decorators are attached to the `handleConnection` method (per
   // `OnGatewayConnection`); fall back to the class itself so the legacy
   // class-level form keeps working during the deprecation window.
-  const targets: Array<Parameters<typeof Reflect.getMetadata>> = [
-    [SPACE_API_WS_CONN, ctor, 'handleConnection'],
-    [SPACE_API_WS_CONN, ctor],
-  ];
-  const top = (Reflect.getMetadata(...targets[0]) ?? Reflect.getMetadata(...targets[1])) as
-    | ConnOptions
-    | undefined;
+  const top = (Reflect.getMetadata(SPACE_API_WS_CONN, ctor, 'handleConnection') ??
+    Reflect.getMetadata(SPACE_API_WS_CONN, ctor)) as ConnOptions | undefined;
   const query = readArray(SPACE_API_WS_CONN_QUERY, ctor);
   const headers = readArray(SPACE_API_WS_CONN_HEADER, ctor);
   const auth = readArray(SPACE_API_WS_CONN_AUTH, ctor);
-  const result: ConnHandshake = {};
+  const result: ConnHandshakeRaw = {};
   if (top?.description) result.description = top.description;
   if (query?.length) result.query = query;
   if (headers?.length) result.headers = headers;
@@ -130,9 +125,9 @@ function readConnHandshake(ctor: Type<unknown>): ConnHandshake | undefined {
   return result.description || result.query || result.headers || result.auth ? result : undefined;
 }
 
-function readArray(key: symbol, ctor: Type<unknown>): ConnInputOptions[] | undefined {
+function readArray(key: symbol, ctor: Type<unknown>): ConnInputDecl[] | undefined {
   return (Reflect.getMetadata(key, ctor, 'handleConnection') ??
-    Reflect.getMetadata(key, ctor)) as ConnInputOptions[] | undefined;
+    Reflect.getMetadata(key, ctor)) as ConnInputDecl[] | undefined;
 }
 
 function readGatewayMeta(ctor: Type<unknown>): { path?: string; namespace?: string } | null {

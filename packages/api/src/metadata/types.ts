@@ -49,7 +49,8 @@ export interface WsChannelMeta {
   path?: string;
   namespace?: string;
   events: WsEventMeta[];
-  conn?: ConnHandshake;
+  /** Raw handshake decls; resolved into `ConnHandshake` by the generator. */
+  conn?: ConnHandshakeRaw;
 }
 
 export interface WsChannelDoc {
@@ -72,12 +73,30 @@ export interface ConnInputOptions {
   example?: string;
 }
 
+/**
+ * What the per-input decorators (`@ConnQuery` etc.) actually accept. Three
+ * forms, matching `@ApiQuery`'s flavor: an inline single-field declaration,
+ * a DTO class to expand, or `{ type: Class }` for explicit DTO wrapping.
+ */
+export type ConnInputDecl =
+  | ConnInputOptions
+  | Type<unknown>
+  | { type: Type<unknown> };
+
 export interface ConnOptions {
   /** Markdown describing how the connection authenticates / hand-shakes. */
   description?: string;
 }
 
-/** Aggregated handshake doc consumed by the generator + UI. */
+/** Raw (pre-expansion) shape stored on the gateway by the decorators. */
+export interface ConnHandshakeRaw {
+  description?: string;
+  query?: ConnInputDecl[];
+  headers?: ConnInputDecl[];
+  auth?: ConnInputDecl[];
+}
+
+/** Resolved handshake doc consumed by the generator + UI. */
 export interface ConnHandshake {
   description?: string;
   query?: ConnInputOptions[];

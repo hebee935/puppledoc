@@ -443,3 +443,13 @@ export class TypingFrameDto {
   @IsOptional()
   userId?: string;
 }
+
+export class HandshakeQueryDto {
+  @ApiProperty({ description: 'JWT signed with the workspace secret.', example: 'eyJhbGciOi…' })
+  @IsString()
+  token!: string;
+
+  @ApiProperty({ description: 'Workspace slug. Selects which JWT secret to validate against.', example: 'acme' })
+  @IsString()
+  workspace!: string;
+}

@@ -35,7 +35,7 @@ export async function registerPayload(
   return { $ref: ref };
 }
 
-async function createSchemaFactory() {
+export async function createSchemaFactory() {
   // Nest swagger internals. Import lazily to keep cold-start light and to isolate
   // version drift to one place.
   const [{ SchemaObjectFactory }, { ModelPropertiesAccessor }, { SwaggerTypesMapper }] =

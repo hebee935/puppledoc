@@ -7,7 +7,9 @@ export { SpaceApiModule } from './module/space-api.module.js';
 export type {
   ConnOptions,
   ConnInputOptions,
+  ConnInputDecl,
   ConnHandshake,
+  ConnHandshakeRaw,
   ReceiveOptions,
   SendOptions,
   SpaceApiOptions,
