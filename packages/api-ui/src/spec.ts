@@ -65,9 +65,10 @@ export function normalize(doc: OpenApiDoc): EndpointGroup[] {
       const ep: WsEventEndpoint = {
         id: `${groupId}:${ev.direction}:${ev.event}`,
         kind: 'ws-event',
-        // The decorator's `direction` is server-perspective (`@Receive` = server
-        // receives), but the docs are for the API consumer — flip to client view.
-        method: ev.direction === 'send' ? 'RECV' : 'SEND',
+        // Match the decorator name 1:1: @Receive → RECV, @Send → SEND. The
+        // arrow text on each event page (`client → server` etc.) makes the
+        // data direction unambiguous regardless of perspective.
+        method: ev.direction === 'send' ? 'SEND' : 'RECV',
         path: ev.event,
         title: ev.summary ?? ev.event,
         description: ev.description,

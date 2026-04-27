@@ -30,10 +30,7 @@ export function WsEventPage({ doc, endpoint }: Props) {
           <span className="endpoint-path-static">
             <span className="path-var">type:</span> "{ev.event}"
           </span>
-          {/* data-dir is from the client's perspective (matches the SEND/RECV
-              pill colors); the spec's `direction` field is server-perspective
-              and gets inverted here. */}
-          <span className="event-dir" data-dir={ev.direction === 'send' ? 'recv' : 'send'}>
+          <span className="event-dir" data-dir={ev.direction}>
             {ev.direction === 'send' ? 'server → client' : 'client → server'}
           </span>
           <div className="hero-actions">
