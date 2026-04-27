@@ -2,13 +2,12 @@
   "name": "@puppledoc/space-ui",
   "version": "1.0.0",
   "private": true,
-  "description": "Static UI bundle for @puppledoc/nestjs-api-reference — Scalar-like docs & tester with WebSocket support. Workspace-only; published inside nestjs-api-reference as ./ui.",
+  "description": "Static UI bundle for @puppledoc/nestjs-api-reference — docs & tester with WebSocket support. Workspace-only; published inside nestjs-api-reference as ./ui.",
   "keywords": [
     "nestjs",
     "swagger",
     "openapi",
     "websocket",
-    "scalar",
     "api-docs"
   ],
   "license": "MIT",

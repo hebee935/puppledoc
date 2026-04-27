@@ -1,6 +1,6 @@
 # `@puppledoc/nestjs-api-reference` — Implementation Spec
 
-NestJS 플러그인. `@nestjs/swagger`가 만드는 OpenAPI 3.1 문서에 WebSocket 이벤트 메타를 덧붙여(`x-websocket` extension), Scalar-like UI에서 **REST + WS**를 한 화면에서 문서화하고 **실제 요청**을 테스트한다.
+NestJS 플러그인. `@nestjs/swagger`가 만드는 OpenAPI 3.1 문서에 WebSocket 이벤트 메타를 덧붙여(`x-websocket` extension), 번들된 UI에서 **REST + WS**를 한 화면에서 문서화하고 **실제 요청**을 테스트한다.
 
 - 배포: `@puppledoc/nestjs-api-reference` (core) + `@puppledoc/space-ui` (정적 번들, core가 내부적으로 서빙)
 - 레이아웃/디자인 레퍼런스: `./DESIGN.md`

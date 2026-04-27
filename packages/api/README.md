@@ -1,6 +1,6 @@
 # `@puppledoc/nestjs-api-reference`
 
-NestJS plugin that extends `@nestjs/swagger` with WebSocket documentation (`x-websocket` OpenAPI extension) and serves a Scalar-like testing UI for both REST and WS.
+NestJS plugin that extends `@nestjs/swagger` with WebSocket documentation (`x-websocket` OpenAPI extension) and serves a bundled testing UI for both REST and WS.
 
 ## Install
 

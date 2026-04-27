@@ -14,7 +14,7 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "turbo run build --filter=!playground && changeset publish"
+    "release": "turbo run build --filter=!playground && pnpm --filter @puppledoc/nestjs-api-reference publish --access public --no-git-checks"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
