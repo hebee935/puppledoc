@@ -5,6 +5,7 @@ import { useStore } from '../store';
 
 export function Sidebar() {
   const { groups, activeId, selectEndpoint, selectGroup, goOverview, openAuth, token } = useStore();
+  const wsSessions = useStore((s) => s.wsSessions);
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, true])),
   );
@@ -63,21 +64,31 @@ export function Sidebar() {
               <span className="nav-group-count">{g.endpoints.length}</span>
             </div>
             <div className="nav-items">
-              {g.endpoints.map((ep) => (
-                <button
-                  key={ep.id}
-                  className="nav-item"
-                  data-active={activeId === ep.id}
-                  onClick={() => selectEndpoint(ep.id)}
-                  title={ep.title}
-                >
-                  <MethodPill method={ep.method} />
-                  <span className="nav-item-label" data-deprecated={ep.deprecated || undefined}>
-                    {ep.title}
-                  </span>
-                  {ep.auth && <Lock size={10} className="nav-item-lock" aria-label="auth required" />}
-                </button>
-              ))}
+              {g.endpoints.map((ep) => {
+                const liveState =
+                  ep.kind === 'ws-connection' ? wsSessions[ep.channel.url]?.state : undefined;
+                return (
+                  <button
+                    key={ep.id}
+                    className="nav-item"
+                    data-active={activeId === ep.id}
+                    onClick={() => selectEndpoint(ep.id)}
+                    title={ep.title}
+                  >
+                    <MethodPill method={ep.method} />
+                    <span className="nav-item-label" data-deprecated={ep.deprecated || undefined}>
+                      {ep.title}
+                    </span>
+                    {liveState === 'connected' && (
+                      <span className="nav-item-live" aria-label="Connected" />
+                    )}
+                    {liveState === 'connecting' && (
+                      <span className="nav-item-live" data-state="connecting" aria-label="Connecting" />
+                    )}
+                    {ep.auth && <Lock size={10} className="nav-item-lock" aria-label="auth required" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}

@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Plus, Send, Square, X } from 'lucide-react';
+import { Eraser, Play, Plus, Send, Square, X } from 'lucide-react';
 import type { OpenApiDoc, WsConnectionEndpoint, WsEventEndpoint } from '../types';
 import { MethodPill } from '../components/MethodPill';
 import { buildExampleFromSchema } from '../samples';
 import { resolveRef } from '../spec';
-import { openWs, type WsClient, type WsFrame, type WsState } from '../runners/ws';
 import { useStore } from '../store';
 
 interface Props {
@@ -14,102 +13,93 @@ interface Props {
 }
 
 /**
- * Unified WS tester. Used for:
- *  - a channel connection (no event filter; compose panel lets you send any JSON)
- *  - a single event (for send events → compose pre-filled with event's schema example;
- *    for recv events → compose is hidden, log auto-filters to `frame.type === event.event`)
+ * Unified WS tester. Connection state (socket, frames, handshake inputs) lives
+ * in the store keyed by channel URL, so it survives navigation between events
+ * on the same channel — only the compose textarea is per-event local.
+ *
+ *  - Connection page: shows the handshake editor (query/subprotocols).
+ *  - Send event: hides the handshake editor; compose pre-filled with the event's example.
+ *  - Recv event: hides compose; log filters to frames whose `type` matches.
  */
 export function WsTester({ doc, endpoint, leftEdge }: Props) {
-  const { token, server } = useStore();
+  const token = useStore((s) => s.token);
+  const session = useStore((s) => s.wsSessions[endpoint.channel.url]);
+  const wsConnect = useStore((s) => s.wsConnect);
+  const wsDisconnect = useStore((s) => s.wsDisconnect);
+  const wsSend = useStore((s) => s.wsSend);
+  const wsSetQuery = useStore((s) => s.wsSetQuery);
+  const wsSetSubprotocols = useStore((s) => s.wsSetSubprotocols);
+  const wsClearFrames = useStore((s) => s.wsClearFrames);
+
   const isEvent = endpoint.kind === 'ws-event';
   const ev = isEvent ? endpoint.event : null;
+  const isConnPage = endpoint.kind === 'ws-connection';
   const channel = endpoint.channel;
+  const channelUrl = channel.url;
 
-  const [state, setState] = useState<WsState>('idle');
-  const [frames, setFrames] = useState<WsFrame[]>([]);
   const [compose, setCompose] = useState(() => initialCompose(doc, endpoint));
-  const [query, setQuery] = useState<Array<{ key: string; value: string }>>([]);
-  const [subprotocols, setSubprotocols] = useState('');
-  const clientRef = useRef<WsClient | null>(null);
-  const pendingRef = useRef<unknown[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
 
+  const state = session?.state ?? 'idle';
+  const frames = session?.frames ?? [];
+  const query = session?.query ?? [];
+  const subprotocols = session?.subprotocols ?? '';
+
+  // Compose resets per endpoint; the connection itself does not.
   useEffect(() => {
     setCompose(initialCompose(doc, endpoint));
-    setFrames([]);
-    setState('idle');
-    setQuery([]);
-    setSubprotocols('');
-    clientRef.current?.close();
-    clientRef.current = null;
   }, [doc, endpoint]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: 1e9 });
   }, [frames]);
 
-  useEffect(() => () => clientRef.current?.close(), []);
-
   const connect = () => {
     if (state === 'connecting' || state === 'connected') return;
-    const url = channel.url.startsWith('ws://') || channel.url.startsWith('wss://')
-      ? channel.url
-      : `${server.replace(/^http/, 'ws')}${channel.url}`;
-    const queryObj: Record<string, string> = {};
-    for (const { key, value } of query) {
-      const k = key.trim();
-      if (k) queryObj[k] = value;
-    }
-    const protocols = subprotocols
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    clientRef.current = openWs({
-      url,
-      token: endpoint.auth ? token : undefined,
-      query: queryObj,
-      protocols: protocols.length > 0 ? protocols : undefined,
-      onState: (s) => {
-        setState(s);
-        if (s === 'connected' && pendingRef.current.length > 0) {
-          const queue = pendingRef.current;
-          pendingRef.current = [];
-          for (const msg of queue) clientRef.current?.send(msg);
-        }
-      },
-      onFrame: (f) => setFrames((prev) => [...prev, f]),
-    });
+    wsConnect(channelUrl, { token: endpoint.auth ? token : undefined });
   };
 
-  const disconnect = () => {
-    clientRef.current?.close();
-    clientRef.current = null;
-  };
+  const disconnect = () => wsDisconnect(channelUrl);
 
   const sendNow = () => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(compose);
     } catch (e) {
-      setFrames((prev) => [
-        ...prev,
-        { dir: 'system', at: Date.now(), text: `JSON error: ${(e as Error).message}` },
-      ]);
+      // Surface JSON errors as a synthetic system frame so the user sees feedback
+      // in the same place as live frames.
+      useStore.setState((s) => {
+        const cur = s.wsSessions[channelUrl] ?? {
+          state: 'idle' as const, frames: [], query: [], subprotocols: '',
+        };
+        return {
+          wsSessions: {
+            ...s.wsSessions,
+            [channelUrl]: {
+              ...cur,
+              frames: [
+                ...cur.frames,
+                { dir: 'system', at: Date.now(), text: `JSON error: ${(e as Error).message}` },
+              ],
+            },
+          },
+        };
+      });
       return;
     }
-    if (state !== 'connected') {
-      pendingRef.current.push(parsed);
-      connect();
-      return;
-    }
-    clientRef.current?.send(parsed);
+    wsSend(channelUrl, parsed, { token: endpoint.auth ? token : undefined });
   };
 
-  const visibleFrames = ev && ev.direction === 'recv'
+  // Filter only when watching a server-pushed event (SEND pill): the user
+  // wants to isolate that one event's frames. On client-send (RECV pill) and
+  // connection pages, show the full conversation so replies stay visible.
+  const visibleFrames = ev && ev.direction === 'send'
     ? frames.filter((f) => f.dir !== 'recv' || matchesEventType(f.body, ev.event))
     : frames;
 
-  const sendable = !isEvent || ev?.direction === 'send';
+  // The user composes on the connection page and on client→server events.
+  const sendable = !isEvent || ev?.direction === 'recv';
+  const editingDisabled = state === 'connected' || state === 'connecting';
 
   return (
     <section className="test wss-tester">
@@ -149,7 +139,17 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
             ? 'Error'
             : 'Disconnected'}
         </span>
-        {state === 'connected' ? (
+        {frames.length > 0 && (
+          <button
+            className="btn"
+            onClick={() => wsClearFrames(channelUrl)}
+            title="Clear log"
+            aria-label="Clear log"
+          >
+            <Eraser size={12} />
+          </button>
+        )}
+        {state === 'connected' || state === 'connecting' ? (
           <button className="btn" onClick={disconnect}>
             <Square size={12} /> Disconnect
           </button>
@@ -160,84 +160,97 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
         )}
       </div>
 
-      <details className="wss-handshake" open>
-        <summary>Handshake</summary>
-        <div className="wss-hs-section">
-          <div className="wss-hs-head">
-            <span>Query params</span>
-            <button
-              type="button"
-              className="wss-hs-add"
-              onClick={() => setQuery((q) => [...q, { key: '', value: '' }])}
-              disabled={state === 'connected' || state === 'connecting'}
-            >
-              <Plus size={11} /> Add
-            </button>
-          </div>
-          {query.length === 0 ? (
-            <div className="wss-hs-empty">
-              None. Token from Authorize is appended automatically when the connection requires auth.
+      {isConnPage && (
+        <details className="wss-handshake" open>
+          <summary>Handshake</summary>
+          <div className="wss-hs-section">
+            <div className="wss-hs-head">
+              <span>Query params</span>
+              <button
+                type="button"
+                className="wss-hs-add"
+                onClick={() => wsSetQuery(channelUrl, [...query, { key: '', value: '' }])}
+                disabled={editingDisabled}
+              >
+                <Plus size={11} /> Add
+              </button>
             </div>
-          ) : (
-            query.map((row, i) => (
-              <div className="wss-hs-row" key={i}>
-                <input
-                  className="input"
-                  placeholder="key"
-                  value={row.key}
-                  onChange={(e) =>
-                    setQuery((q) => q.map((r, j) => (j === i ? { ...r, key: e.target.value } : r)))
-                  }
-                  spellCheck={false}
-                  disabled={state === 'connected' || state === 'connecting'}
-                />
-                <input
-                  className="input"
-                  placeholder="value"
-                  value={row.value}
-                  onChange={(e) =>
-                    setQuery((q) => q.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)))
-                  }
-                  spellCheck={false}
-                  disabled={state === 'connected' || state === 'connecting'}
-                />
-                <button
-                  type="button"
-                  className="wss-hs-remove"
-                  onClick={() => setQuery((q) => q.filter((_, j) => j !== i))}
-                  disabled={state === 'connected' || state === 'connecting'}
-                  aria-label="Remove"
-                >
-                  <X size={12} />
-                </button>
+            {query.length === 0 ? (
+              <div className="wss-hs-empty">
+                None. Token from Authorize is appended automatically when the connection requires auth.
               </div>
-            ))
-          )}
-        </div>
-
-        <div className="wss-hs-section">
-          <div className="wss-hs-head">
-            <span>Subprotocols</span>
-            <span className="wss-hs-meta">Sec-WebSocket-Protocol</span>
+            ) : (
+              query.map((row, i) => (
+                <div className="wss-hs-row" key={i}>
+                  <input
+                    className="input"
+                    placeholder="key"
+                    value={row.key}
+                    onChange={(e) =>
+                      wsSetQuery(
+                        channelUrl,
+                        query.map((r, j) => (j === i ? { ...r, key: e.target.value } : r)),
+                      )
+                    }
+                    spellCheck={false}
+                    disabled={editingDisabled}
+                  />
+                  <input
+                    className="input"
+                    placeholder="value"
+                    value={row.value}
+                    onChange={(e) =>
+                      wsSetQuery(
+                        channelUrl,
+                        query.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)),
+                      )
+                    }
+                    spellCheck={false}
+                    disabled={editingDisabled}
+                  />
+                  <button
+                    type="button"
+                    className="wss-hs-remove"
+                    onClick={() => wsSetQuery(channelUrl, query.filter((_, j) => j !== i))}
+                    disabled={editingDisabled}
+                    aria-label="Remove"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
-          <input
-            className="input"
-            placeholder="comma-separated, e.g. v1.chat, json.v2"
-            value={subprotocols}
-            onChange={(e) => setSubprotocols(e.target.value)}
-            spellCheck={false}
-            disabled={state === 'connected' || state === 'connecting'}
-          />
-        </div>
 
-      </details>
+          <div className="wss-hs-section">
+            <div className="wss-hs-head">
+              <span>Subprotocols</span>
+              <span className="wss-hs-meta">Sec-WebSocket-Protocol</span>
+            </div>
+            <input
+              className="input"
+              placeholder="comma-separated, e.g. v1.chat, json.v2"
+              value={subprotocols}
+              onChange={(e) => wsSetSubprotocols(channelUrl, e.target.value)}
+              spellCheck={false}
+              disabled={editingDisabled}
+            />
+          </div>
+        </details>
+      )}
 
       <div className="wss-log" ref={logRef} style={{ maxHeight: 320 }}>
         {visibleFrames.length === 0 && (
           <div className="resp-empty">
             No frames yet
             <div className="hint">
-              {sendable ? 'Compose a payload below and press send' : 'Connect and wait for events'}
+              {sendable
+                ? state === 'connected'
+                  ? 'Compose a payload below and press send'
+                  : 'Click Connect or just send — connect happens automatically'
+                : state === 'connected'
+                ? 'Listening for events…'
+                : 'Connect to start receiving events'}
             </div>
           </div>
         )}

@@ -1,6 +1,27 @@
 import { create } from 'zustand';
 import type { Endpoint, EndpointGroup, OpenApiDoc, SpaceApiBootstrap } from './types';
 import { flattenEndpoints, normalize } from './spec';
+import { openWs, type WsClient, type WsFrame, type WsState } from './runners/ws';
+
+export interface WsQueryRow {
+  key: string;
+  value: string;
+}
+
+export interface WsSession {
+  state: WsState;
+  frames: WsFrame[];
+  query: WsQueryRow[];
+  subprotocols: string;
+}
+
+const EMPTY_SESSION: WsSession = { state: 'idle', frames: [], query: [], subprotocols: '' };
+
+// Non-serializable client refs live alongside the store, keyed by channel URL.
+// Keeping them out of the zustand state avoids re-render churn and lets the
+// session survive navigation between events on the same channel.
+const wsClients = new Map<string, WsClient>();
+const wsPending = new Map<string, unknown[]>();
 
 interface UiState {
   bootstrap: SpaceApiBootstrap;
@@ -15,6 +36,8 @@ interface UiState {
   sidebarCollapsed: boolean;
   sidebarWidth: number;
   testWidth: number;
+  /** WebSocket sessions keyed by channel URL (relative or absolute). */
+  wsSessions: Record<string, WsSession>;
 
   load: (doc: OpenApiDoc) => void;
   selectEndpoint: (id: string) => void;
@@ -34,6 +57,13 @@ interface UiState {
   getActive: () => Endpoint | null;
   /** Re-sync activeId from window.location.hash (called by a hashchange listener). */
   syncFromHash: () => void;
+
+  wsConnect: (channelUrl: string, opts?: { token?: string }) => void;
+  wsDisconnect: (channelUrl: string) => void;
+  wsSend: (channelUrl: string, payload: unknown, opts?: { token?: string }) => void;
+  wsSetQuery: (channelUrl: string, rows: WsQueryRow[]) => void;
+  wsSetSubprotocols: (channelUrl: string, value: string) => void;
+  wsClearFrames: (channelUrl: string) => void;
 }
 
 function readHashId(): string | null {
@@ -96,6 +126,7 @@ export const useStore = create<UiState>((set, get) => ({
   sidebarCollapsed: localStorage.getItem('space-api:sidebarCollapsed') === '1',
   sidebarWidth: readWidth(STORAGE_KEYS.sidebarWidth, 260),
   testWidth: readWidth(STORAGE_KEYS.testWidth, 520),
+  wsSessions: {},
 
   load: (doc) => {
     const groups = normalize(doc);
@@ -191,4 +222,115 @@ export const useStore = create<UiState>((set, get) => ({
     if (next) localStorage.setItem(STORAGE_KEYS.activeId, next);
     else localStorage.setItem(STORAGE_KEYS.activeId, '__overview__');
   },
+
+  wsConnect: (channelUrl, opts) => {
+    const existing = wsClients.get(channelUrl);
+    if (existing && (get().wsSessions[channelUrl]?.state === 'connecting' ||
+                     get().wsSessions[channelUrl]?.state === 'connected')) return;
+
+    const session = get().wsSessions[channelUrl] ?? EMPTY_SESSION;
+    const fullUrl = channelUrl.startsWith('ws://') || channelUrl.startsWith('wss://')
+      ? channelUrl
+      : `${get().server.replace(/^http/, 'ws')}${channelUrl}`;
+
+    const queryObj: Record<string, string> = {};
+    for (const { key, value } of session.query) {
+      const k = key.trim();
+      if (k) queryObj[k] = value;
+    }
+    const protocols = session.subprotocols
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const updateSession = (patch: Partial<WsSession>) =>
+      set((s) => ({
+        wsSessions: {
+          ...s.wsSessions,
+          [channelUrl]: { ...(s.wsSessions[channelUrl] ?? EMPTY_SESSION), ...patch },
+        },
+      }));
+
+    const client = openWs({
+      url: fullUrl,
+      token: opts?.token,
+      query: queryObj,
+      protocols: protocols.length > 0 ? protocols : undefined,
+      onState: (state) => {
+        updateSession({ state });
+        if (state === 'connected') {
+          const queue = wsPending.get(channelUrl) ?? [];
+          if (queue.length > 0) {
+            wsPending.set(channelUrl, []);
+            for (const msg of queue) wsClients.get(channelUrl)?.send(msg);
+          }
+        }
+      },
+      onFrame: (frame) => {
+        set((s) => {
+          const cur = s.wsSessions[channelUrl] ?? EMPTY_SESSION;
+          return {
+            wsSessions: {
+              ...s.wsSessions,
+              [channelUrl]: { ...cur, frames: [...cur.frames, frame] },
+            },
+          };
+        });
+      },
+    });
+    wsClients.set(channelUrl, client);
+  },
+
+  wsDisconnect: (channelUrl) => {
+    wsClients.get(channelUrl)?.close();
+    wsClients.delete(channelUrl);
+    wsPending.delete(channelUrl);
+  },
+
+  wsSend: (channelUrl, payload, opts) => {
+    const client = wsClients.get(channelUrl);
+    const state = get().wsSessions[channelUrl]?.state;
+    if (client && state === 'connected') {
+      client.send(payload);
+      return;
+    }
+    // Queue and (re)connect — the queue drains on the 'connected' state event.
+    const queue = wsPending.get(channelUrl) ?? [];
+    queue.push(payload);
+    wsPending.set(channelUrl, queue);
+    if (state !== 'connecting') get().wsConnect(channelUrl, opts);
+  },
+
+  wsSetQuery: (channelUrl, rows) =>
+    set((s) => ({
+      wsSessions: {
+        ...s.wsSessions,
+        [channelUrl]: { ...(s.wsSessions[channelUrl] ?? EMPTY_SESSION), query: rows },
+      },
+    })),
+
+  wsSetSubprotocols: (channelUrl, value) =>
+    set((s) => ({
+      wsSessions: {
+        ...s.wsSessions,
+        [channelUrl]: { ...(s.wsSessions[channelUrl] ?? EMPTY_SESSION), subprotocols: value },
+      },
+    })),
+
+  wsClearFrames: (channelUrl) =>
+    set((s) => ({
+      wsSessions: {
+        ...s.wsSessions,
+        [channelUrl]: { ...(s.wsSessions[channelUrl] ?? EMPTY_SESSION), frames: [] },
+      },
+    })),
 }));
+
+// Close any open sockets when the page unloads — the server may otherwise
+// hold the connection open until its read timeout fires.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    for (const c of wsClients.values()) c.close();
+    wsClients.clear();
+  });
+}
