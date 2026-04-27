@@ -166,16 +166,18 @@ export type SchemaLike = {
   [key: string]: unknown;
 }
 
+/**
+ * UI-only options passed as the optional 4th argument to
+ * `PuppleDocModule.setup`. Title, servers, and other OpenAPI-derivable values
+ * are read from the document itself; this object only carries settings that
+ * have no OpenAPI counterpart.
+ */
 export interface PuppleDocUiOptions {
-  /** Title shown in the sidebar brand area. Falls back to `document.info.title`. */
-  title?: string;
-  /** Visual theme. Only `light` is implemented in v0.1. */
+  /** Visual theme. `auto` follows the OS `prefers-color-scheme` media query. */
   theme?: 'light' | 'dark' | 'auto';
-  /** Server list shown in the test panel's baseURL switcher. */
-  servers?: { label: string; url: string }[];
 }
 
-/** @deprecated kept as an alias for compatibility — use the 4-arg `setup` form. */
+/** @deprecated alias kept for older imports. Use {@link PuppleDocUiOptions}. */
 export type PuppleDocOptions = PuppleDocUiOptions;
 
 /** Our OpenAPI extension. Lives under `x-websocket` on the root document. */

@@ -178,7 +178,6 @@ export const useStore = create<UiState>((set, get) => ({
 
     const defaultServer =
       get().server ||
-      get().bootstrap.ui?.servers?.[0]?.url ||
       doc.servers?.[0]?.url ||
       window.location.origin;
 

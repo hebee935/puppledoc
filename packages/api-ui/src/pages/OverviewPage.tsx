@@ -1,4 +1,3 @@
-import { useStore } from '../store';
 import { renderMarkdown } from '../markdown';
 import type { OpenApiDoc } from '../types';
 
@@ -7,10 +6,8 @@ import type { OpenApiDoc } from '../types';
  * on their behalf — counts, boilerplate, shortcuts, etc. stay out.
  */
 export function OverviewPage({ doc }: { doc: OpenApiDoc }) {
-  const { bootstrap } = useStore();
   const info = doc.info ?? {};
   const servers =
-    bootstrap.ui?.servers ??
     doc.servers?.map((s) => ({ label: s.description ?? s.url, url: s.url })) ??
     [];
   // `contact`, `license`, `termsOfService` are valid `info` fields per OpenAPI 3.1.

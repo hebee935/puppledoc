@@ -13,7 +13,7 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
     localStorage.setItem('puppledoc:theme', theme);
   }, [theme]);
 
-  const title = bootstrap.ui?.title ?? doc?.info?.title ?? 'API Docs';
+  const title = doc?.info?.title ?? 'API Docs';
   const version = doc?.info?.version ?? '';
 
   return (

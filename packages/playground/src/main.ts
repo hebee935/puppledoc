@@ -51,14 +51,10 @@ async function bootstrap() {
     )
     .setVersion('0.1.0')
     .addBearerAuth()
+    .addServer(`http://localhost:${process.env.PORT ?? 3077}`, 'Local')
     .build();
 
-  await PuppleDocModule.setup('/docs', app, config, {
-    title: 'Chat API',
-    servers: [
-      { label: 'Local', url: `http://localhost:${process.env.PORT ?? 3077}` },
-    ],
-  });
+  await PuppleDocModule.setup('/docs', app, config);
 
   const port = Number(process.env.PORT ?? 3077);
   await app.listen(port);

@@ -705,8 +705,8 @@ function ParamInput({
 }
 
 function ServerSelect() {
-  const { server, setServer, bootstrap, doc } = useStore();
-  const options = bootstrap.ui?.servers ??
+  const { server, setServer, doc } = useStore();
+  const options =
     doc?.servers?.map((s) => ({ label: s.description ?? s.url, url: s.url })) ??
     [];
   if (options.length <= 1) return null;
