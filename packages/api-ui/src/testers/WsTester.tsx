@@ -39,6 +39,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
   const channelUrl = channel.url;
 
   const [compose, setCompose] = useState(() => initialCompose(doc, endpoint));
+  const [showMissing, setShowMissing] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   const state = session?.state ?? 'idle';
@@ -49,6 +50,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
   // Compose resets per endpoint; the connection itself does not.
   useEffect(() => {
     setCompose(initialCompose(doc, endpoint));
+    setShowMissing(false);
   }, [doc, endpoint]);
 
   // Pre-populate handshake query rows from the channel's `@ConnQuery`
@@ -91,39 +93,89 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
     logRef.current?.scrollTo({ top: 1e9 });
   }, [frames]);
 
+  const missingRequired = useMemo(() => {
+    const m: string[] = [];
+    for (const name of pathVars) {
+      if (!pathParams[name]?.toString().trim()) m.push(`path · ${name}`);
+    }
+    for (const decl of declaredQuery) {
+      if (!decl.required) continue;
+      const row = query.find((r) => r.key === decl.name);
+      const empty = !row || !row.value.trim();
+      // Bearer-marked rows are filled implicitly by the Authorize token.
+      const isBearer = decl.bearer || decl.name.toLowerCase() === 'token';
+      if (empty && !(isBearer && token)) m.push(`query · ${decl.name}`);
+    }
+    return m;
+  }, [pathVars, pathParams, declaredQuery, query, token]);
+
+  // Validation specific to the compose textarea — JSON syntax + payload's
+  // top-level required fields. Empty list means OK.
+  const composeIssue = useMemo(() => {
+    if (!isEvent || ev?.direction !== 'recv') return null;
+    if (!compose.trim()) return 'payload is empty';
+    let parsed: unknown;
+    try { parsed = JSON.parse(compose); } catch (e) { return `invalid JSON · ${(e as Error).message}`; }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const payloadSchema = (endpoint as WsEventEndpoint).event.payload as { required?: string[] } | undefined;
+    const required = payloadSchema?.required ?? [];
+    const obj = parsed as Record<string, unknown>;
+    const missing = required.filter((f) => {
+      const v = obj[f];
+      return v === undefined || v === null || v === '';
+    });
+    if (missing.length > 0) return `missing payload field${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`;
+    return null;
+  }, [isEvent, ev, compose, endpoint]);
+
+  useEffect(() => {
+    if (showMissing && missingRequired.length === 0 && !composeIssue) setShowMissing(false);
+  }, [showMissing, missingRequired, composeIssue]);
+
+  const focusFirstMissing = () => {
+    if (missingRequired.length === 0) return;
+    const first = missingRequired[0];
+    const [kind, name] = first.split(' · ');
+    requestAnimationFrame(() => {
+      const sel = name ? `[data-field="${kind}-${name}"]` : `[data-field="${kind}"]`;
+      const el = document.querySelector<HTMLElement>(sel);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus({ preventScroll: true });
+    });
+  };
+
   const connect = () => {
     if (state === 'connecting' || state === 'connected') return;
+    if (missingRequired.length > 0) {
+      setShowMissing(true);
+      focusFirstMissing();
+      return;
+    }
+    setShowMissing(false);
     wsConnect(channelUrl, { token: endpoint.auth ? token : undefined, bearerKeys });
   };
 
   const disconnect = () => wsDisconnect(channelUrl);
 
   const sendNow = () => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(compose);
-    } catch (e) {
-      // Surface JSON errors as a synthetic system frame so the user sees feedback
-      // in the same place as live frames.
-      useStore.setState((s) => {
-        const cur = s.wsSessions[channelUrl] ?? {
-          state: 'idle' as const, frames: [], query: [], subprotocols: '',
-        };
-        return {
-          wsSessions: {
-            ...s.wsSessions,
-            [channelUrl]: {
-              ...cur,
-              frames: [
-                ...cur.frames,
-                { dir: 'system', at: Date.now(), text: `JSON error: ${(e as Error).message}` },
-              ],
-            },
-          },
-        };
+    if (composeIssue) {
+      setShowMissing(true);
+      requestAnimationFrame(() => {
+        const el = document.querySelector<HTMLElement>('[data-field="payload"]');
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus({ preventScroll: true });
       });
       return;
     }
+    if (missingRequired.length > 0) {
+      setShowMissing(true);
+      focusFirstMissing();
+      return;
+    }
+    setShowMissing(false);
+    const parsed = JSON.parse(compose) as unknown;
     wsSend(channelUrl, parsed, { token: endpoint.auth ? token : undefined, bearerKeys });
   };
 
@@ -196,6 +248,13 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
           </button>
         )}
       </div>
+      {showMissing && (missingRequired.length > 0 || composeIssue) && (
+        <div className="wss-missing-warn">
+          {composeIssue
+            ? `Payload · ${composeIssue}`
+            : `Missing required: ${missingRequired.join(', ')}`}
+        </div>
+      )}
 
       {isConnPage && (
         <details className="wss-handshake" open>
@@ -214,6 +273,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
                   </span>
                   <input
                     className="input"
+                    data-field={`path-${name}`}
                     placeholder={`:${name}`}
                     value={pathParams[name] ?? ''}
                     onChange={(e) => wsSetPathParam(channelUrl, name, e.target.value)}
@@ -269,6 +329,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
                     )}
                     <input
                       className="input"
+                      data-field={`query-${row.key}`}
                       placeholder={
                         isBearerRow(row.key) && token
                           ? '(from Authorize)'
@@ -379,11 +440,16 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
           <div className="wss-compose">
             <textarea
               className="input input-textarea"
+              data-field="payload"
               value={compose}
               onChange={(e) => setCompose(e.target.value)}
               spellCheck={false}
             />
-            <button className="btn primary" onClick={sendNow} style={{ alignSelf: 'stretch', padding: '0 14px' }}>
+            <button
+              className="btn primary"
+              onClick={sendNow}
+              style={{ alignSelf: 'stretch', padding: '0 14px' }}
+            >
               <Send size={14} />
             </button>
           </div>

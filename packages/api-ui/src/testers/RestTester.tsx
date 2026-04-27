@@ -60,6 +60,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
   const [resp, setResp] = useState<RestRunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showMissing, setShowMissing] = useState(false);
 
   useEffect(() => {
     setParamVals(buildExampleParams(pathParams));
@@ -84,6 +85,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
     }
     setResp(null);
     setError(null);
+    setShowMissing(false);
     setTab(defaultTab());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint.id, body, formFields, doc, headerParams]);
@@ -101,6 +103,52 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
       bodyErr = (e as Error).message;
     }
   }
+
+  const missingRequired = useMemo(() => {
+    const m: string[] = [];
+    for (const p of pathParams) {
+      if (p.required && !paramVals[p.name]?.toString().trim()) m.push(`path · ${p.name}`);
+    }
+    for (const p of queryParams) {
+      if (p.required && !queryVals[p.name]?.toString().trim()) m.push(`query · ${p.name}`);
+    }
+    for (const p of headerParams) {
+      if (p.required && !headerVals[p.name]?.toString().trim()) m.push(`header · ${p.name}`);
+    }
+    if (body?.kind === 'form') {
+      for (const f of formFields) {
+        if (!f.required) continue;
+        const v = formVals[f.name];
+        const empty = v === undefined || v === '' || (typeof v === 'string' && !v.trim());
+        if (empty) m.push(`body · ${f.name}`);
+      }
+    }
+    if (body?.kind === 'json') {
+      if (op.requestBody?.required && !bodyTxt.trim()) {
+        m.push('body');
+      } else if (!bodyErr && parsedJson && typeof parsedJson === 'object' && !Array.isArray(parsedJson)) {
+        // Top-level required fields per the body schema.
+        const required = (body.schema.required as string[] | undefined) ?? [];
+        const obj = parsedJson as Record<string, unknown>;
+        for (const f of required) {
+          const v = obj[f];
+          if (v === undefined || v === null || v === '') m.push(`body · ${f}`);
+        }
+      }
+    }
+    return m;
+  }, [
+    pathParams, queryParams, headerParams,
+    paramVals, queryVals, headerVals,
+    body, formFields, formVals, bodyTxt,
+    bodyErr, parsedJson,
+    op.requestBody?.required,
+  ]);
+
+  // Auto-clear the warning once everything is valid + filled.
+  useEffect(() => {
+    if (showMissing && missingRequired.length === 0 && !bodyErr) setShowMissing(false);
+  }, [showMissing, missingRequired, bodyErr]);
 
   const headers = useMemo<Record<string, string>>(() => {
     const h: Record<string, string> = {};
@@ -223,6 +271,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                     placeholder={String(p.example ?? p.schema?.example ?? '')}
                     value={paramVals[p.name] ?? ''}
                     onChange={(v) => setParamVals((prev) => ({ ...prev, [p.name]: v }))}
+                    fieldKey={`path-${p.name}`}
                   />
                 ))}
               </>
@@ -238,6 +287,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                     placeholder={String(p.example ?? p.schema?.example ?? '')}
                     value={queryVals[p.name] ?? ''}
                     onChange={(v) => setQueryVals((prev) => ({ ...prev, [p.name]: v }))}
+                    fieldKey={`query-${p.name}`}
                   />
                 ))}
               </>
@@ -249,6 +299,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
           <div className="param-editor">
             <textarea
               className="input input-textarea"
+              data-field="body"
               value={bodyTxt}
               onChange={(e) => setBodyTxt(e.target.value)}
               spellCheck={false}
@@ -294,6 +345,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                     placeholder={String(p.example ?? p.schema?.example ?? '')}
                     value={headerVals[p.name] ?? ''}
                     onChange={(v) => setHeaderVals((prev) => ({ ...prev, [p.name]: v }))}
+                    fieldKey={`header-${p.name}`}
                   />
                 ))}
               </>
@@ -451,13 +503,58 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
       </div>
 
       <div className="test-foot">
-        <button className="btn primary" onClick={send} disabled={loading || !!bodyErr}>
+        <button
+          className="btn primary"
+          onClick={() => {
+            // JSON syntax error takes precedence — focus the body textarea so
+            // the user sees the parser message right next to it.
+            if (bodyErr) {
+              setShowMissing(true);
+              if (tab !== 'body') setTab('body');
+              requestAnimationFrame(() => {
+                const el = document.querySelector<HTMLElement>('[data-field="body"]');
+                if (!el) return;
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.focus({ preventScroll: true });
+              });
+              return;
+            }
+            if (missingRequired.length === 0) {
+              setShowMissing(false);
+              send();
+              return;
+            }
+            setShowMissing(true);
+            const first = missingRequired[0];
+            const [kind, name] = first.split(' · ');
+            const tabFor: Record<string, Tab> = {
+              path: 'params', query: 'params', header: 'headers', body: 'body',
+            };
+            const target = tabFor[kind];
+            if (target && target !== tab) setTab(target);
+            requestAnimationFrame(() => {
+              const sel = name ? `[data-field="${kind}-${name}"]` : `[data-field="${kind}"]`;
+              const el = document.querySelector<HTMLElement>(sel);
+              if (!el) return;
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el.focus({ preventScroll: true });
+            });
+          }}
+          disabled={loading}
+        >
           {loading ? (
             <><span className="dots"><span /><span /><span /></span> Sending</>
           ) : (
             <><Play size={14} /> Send Request</>
           )}
         </button>
+        {showMissing && (bodyErr || missingRequired.length > 0) && (
+          <span className="test-foot-warn">
+            {bodyErr
+              ? `Invalid JSON · ${bodyErr}`
+              : `Missing required: ${missingRequired.join(', ')}`}
+          </span>
+        )}
         <button className="btn ghost" onClick={() => navigator.clipboard?.writeText(codeStr)}>
           <Copy size={14} /> Copy {codeLang}
         </button>
@@ -535,6 +632,7 @@ function FormFieldInput({
             type="file"
             className="input"
             style={{ padding: 4 }}
+            data-field={`body-${field.name}`}
             onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           />
           {value instanceof File && (
@@ -546,6 +644,7 @@ function FormFieldInput({
       ) : (
         <input
           className="input"
+          data-field={`body-${field.name}`}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onText(e.target.value)}
           placeholder={String(field.example ?? '')}
@@ -579,12 +678,14 @@ function ParamInput({
   placeholder,
   value,
   onChange,
+  fieldKey,
 }: {
   label: string;
   required: boolean;
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
+  fieldKey?: string;
 }) {
   return (
     <div className="param-row">
@@ -594,6 +695,7 @@ function ParamInput({
       </span>
       <input
         className="input"
+        data-field={fieldKey}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
