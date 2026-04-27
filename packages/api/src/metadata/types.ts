@@ -62,6 +62,8 @@ export interface WsEventMeta {
   handler?: string;
 }
 
+export type WsTransport = 'ws' | 'socket.io';
+
 export interface WsChannelMeta {
   name: string;
   path?: string;
@@ -71,6 +73,8 @@ export interface WsChannelMeta {
   tags?: string[];
   /** Raw handshake decls; resolved into `ConnHandshake` by the generator. */
   conn?: ConnHandshakeRaw;
+  /** Inferred from the gateway options at scan time. */
+  transport?: WsTransport;
 }
 
 export interface WsChannelDoc {
@@ -80,6 +84,8 @@ export interface WsChannelDoc {
   events: WsEventDoc[];
   tags?: string[];
   conn?: ConnHandshake;
+  /** Wire protocol the channel uses; the docs UI tester branches on this. */
+  transport?: WsTransport;
 }
 
 /**

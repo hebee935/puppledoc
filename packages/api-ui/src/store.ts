@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Endpoint, EndpointGroup, OpenApiDoc, PuppleDocBootstrap } from './types';
 import { flattenEndpoints, normalize } from './spec';
 import { openWs, type WsClient, type WsFrame, type WsState } from './runners/ws';
+import { openSocketIo } from './runners/socketio';
 
 export interface WsQueryRow {
   key: string;
@@ -87,13 +88,21 @@ interface UiState {
 
   wsConnect: (
     channelUrl: string,
-    opts?: { token?: string; bearerKeys?: string[] },
+    opts?: {
+      token?: string;
+      bearerKeys?: string[];
+      transport?: 'ws' | 'socket.io';
+    },
   ) => void;
   wsDisconnect: (channelUrl: string) => void;
   wsSend: (
     channelUrl: string,
     payload: unknown,
-    opts?: { token?: string; bearerKeys?: string[] },
+    opts?: {
+      token?: string;
+      bearerKeys?: string[];
+      transport?: 'ws' | 'socket.io';
+    },
   ) => void;
   wsSetQuery: (channelUrl: string, rows: WsQueryRow[]) => void;
   wsSetSubprotocols: (channelUrl: string, value: string) => void;
@@ -295,33 +304,54 @@ export const useStore = create<UiState>((set, get) => ({
           [channelUrl]: { ...(s.wsSessions[channelUrl] ?? EMPTY_SESSION), ...patch },
         },
       }));
-
-    const client = openWs({
-      url: fullUrl,
-      query: queryObj,
-      protocols: protocols.length > 0 ? protocols : undefined,
-      onState: (state) => {
-        updateSession({ state });
-        if (state === 'connected') {
-          const queue = wsPending.get(channelUrl) ?? [];
-          if (queue.length > 0) {
-            wsPending.set(channelUrl, []);
-            for (const msg of queue) wsClients.get(channelUrl)?.send(msg);
-          }
+    const onState = (state: WsState) => {
+      updateSession({ state });
+      if (state === 'connected') {
+        const queue = wsPending.get(channelUrl) ?? [];
+        if (queue.length > 0) {
+          wsPending.set(channelUrl, []);
+          for (const msg of queue) wsClients.get(channelUrl)?.send(msg);
         }
-      },
-      onFrame: (frame) => {
-        set((s) => {
-          const cur = s.wsSessions[channelUrl] ?? EMPTY_SESSION;
-          return {
-            wsSessions: {
-              ...s.wsSessions,
-              [channelUrl]: { ...cur, frames: [...cur.frames, frame] },
-            },
-          };
-        });
-      },
-    });
+      }
+    };
+    const onFrame = (frame: WsFrame) => {
+      set((s) => {
+        const cur = s.wsSessions[channelUrl] ?? EMPTY_SESSION;
+        return {
+          wsSessions: {
+            ...s.wsSessions,
+            [channelUrl]: { ...cur, frames: [...cur.frames, frame] },
+          },
+        };
+      });
+    };
+
+    let client: WsClient;
+    if (opts?.transport === 'socket.io') {
+      // socket.io idiom: bearer token rides in the handshake `auth` payload
+      // (so `client.handshake.auth.token` works on the server). Other declared
+      // params still go through the query string.
+      const authData: Record<string, string> = {};
+      if (opts.token) {
+        for (const key of bearerKeys) authData[key] = opts.token;
+        if (Object.keys(authData).length === 0) authData.token = opts.token;
+      }
+      client = openSocketIo({
+        url: fullUrl,
+        authData: Object.keys(authData).length > 0 ? authData : undefined,
+        query: queryObj,
+        onState,
+        onFrame,
+      });
+    } else {
+      client = openWs({
+        url: fullUrl,
+        query: queryObj,
+        protocols: protocols.length > 0 ? protocols : undefined,
+        onState,
+        onFrame,
+      });
+    }
     wsClients.set(channelUrl, client);
   },
 

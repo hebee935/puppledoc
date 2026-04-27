@@ -23,6 +23,11 @@ export function WsConnectionPage({ endpoint }: Props) {
         <div className="endpoint-hero-row">
           <MethodPill method={endpoint.method} />
           <span className="endpoint-path-static">{endpoint.channel.url}</span>
+          {endpoint.channel.transport && (
+            <span className="ws-transport-chip" data-transport={endpoint.channel.transport}>
+              {endpoint.channel.transport}
+            </span>
+          )}
           <div className="hero-actions">
             {endpoint.auth && (
               <span className="ep-lock-icon" title="Authentication required">

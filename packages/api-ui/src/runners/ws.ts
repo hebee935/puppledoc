@@ -13,7 +13,6 @@ export interface WsClient {
   state: WsState;
   send: (payload: unknown) => void;
   close: (code?: number) => void;
-  readonly socket: WebSocket;
 }
 
 export interface WsOptions {
@@ -46,7 +45,6 @@ export function openWs(opts: WsOptions): WsClient {
   const ws = new WebSocket(u.toString(), opts.protocols);
   const client: WsClient = {
     state: 'connecting',
-    socket: ws,
     send: (payload) => {
       const raw = typeof payload === 'string' ? payload : JSON.stringify(payload);
       ws.send(raw);

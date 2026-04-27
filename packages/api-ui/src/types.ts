@@ -78,6 +78,7 @@ export interface WsChannel {
   events: WsEvent[];
   tags?: string[];
   conn?: ConnHandshake;
+  transport?: 'ws' | 'socket.io';
 }
 
 export interface ConnInputOptions {

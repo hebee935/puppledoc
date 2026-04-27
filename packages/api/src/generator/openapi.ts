@@ -50,6 +50,7 @@ export async function enrichWithWebsocket(
       events,
       tags: ch.tags && ch.tags.length > 1 ? ch.tags : undefined,
       conn,
+      transport: ch.transport,
     });
   }
 

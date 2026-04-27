@@ -153,7 +153,11 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
       return;
     }
     setShowMissing(false);
-    wsConnect(channelUrl, { token: endpoint.auth ? token : undefined, bearerKeys });
+    wsConnect(channelUrl, {
+      token: endpoint.auth ? token : undefined,
+      bearerKeys,
+      transport: channel.transport,
+    });
   };
 
   const disconnect = () => wsDisconnect(channelUrl);
@@ -176,7 +180,11 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
     }
     setShowMissing(false);
     const parsed = JSON.parse(compose) as unknown;
-    wsSend(channelUrl, parsed, { token: endpoint.auth ? token : undefined, bearerKeys });
+    wsSend(channelUrl, parsed, {
+      token: endpoint.auth ? token : undefined,
+      bearerKeys,
+      transport: channel.transport,
+    });
   };
 
   // Filter only when watching a server-pushed event (SEND pill): the user

@@ -102,6 +102,11 @@ export function scanWsChannels(app: INestApplication): WsChannelMeta[] {
       events,
       tags: meta.tags,
       conn: meta.conn,
+      // Heuristic: socket.io gateways canonically use `namespace` to route,
+      // raw-ws gateways (with @nestjs/platform-ws) use `path`. Either signal
+      // alone disambiguates in practice; if both are missing we leave the
+      // transport undefined and the UI defaults to raw ws.
+      transport: meta.namespace ? 'socket.io' : meta.path ? 'ws' : undefined,
     });
   }
   for (const { meta, events } of synthetic.values()) {
