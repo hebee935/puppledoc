@@ -11,7 +11,7 @@ import {
 } from '@nestjs/swagger';
 import { ErrorResponseDto, UpdateMeDto, UserDto, UserRole } from './dto';
 
-@ApiTags('Users & accounts')
+@ApiTags('Workspace/Users')
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {

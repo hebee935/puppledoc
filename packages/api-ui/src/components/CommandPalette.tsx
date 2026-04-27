@@ -19,8 +19,10 @@ export function CommandPalette() {
 
   const items = useMemo(() => {
     const flat = flattenEndpoints(groups);
-    if (!query.trim()) return flat.slice(0, 50);
-    return rank(flat, query.trim().toLowerCase()).slice(0, 50);
+    // Empty query: show every endpoint (the palette scrolls). Typed query:
+    // show every match — capping makes long-tail results invisible.
+    if (!query.trim()) return flat;
+    return rank(flat, query.trim().toLowerCase());
   }, [groups, query]);
 
   if (!paletteOpen) return null;

@@ -15,7 +15,7 @@ export class HealthStatusDto {
   time!: string;
 }
 
-@ApiTags('Health')
+@ApiTags('Ops/Health')
 @Controller('health')
 export class HealthController {
   private readonly startedAt = Date.now();

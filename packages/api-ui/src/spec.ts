@@ -121,7 +121,13 @@ function deriveGroupFromPath(path: string): string {
 }
 
 function slug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // Unicode-aware: keep letters/digits from any script (Hangul, CJK, etc.) so
+  // tags like '인사/임직원' don't collapse to an empty id and merge with every
+  // other non-Latin tag.
+  return s
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-|-$/g, '');
 }
 
 /** Resolve a `$ref` pointer within the document's components.schemas table. */

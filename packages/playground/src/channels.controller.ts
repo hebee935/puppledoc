@@ -36,7 +36,7 @@ import {
   UpdateChannelDto,
 } from './dto';
 
-@ApiTags('Channels')
+@ApiTags('Workspace/Content/Channels')
 @ApiBearerAuth()
 @Controller('channels')
 export class ChannelsController {

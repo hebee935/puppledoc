@@ -42,7 +42,7 @@ interface UploadedFileShape {
   buffer: Buffer;
 }
 
-@ApiTags('Messages')
+@ApiTags('Workspace/Content/Messages')
 @ApiBearerAuth()
 @Controller()
 // Document WS frames emitted from this controller's flow. The `channel` ref
