@@ -4,11 +4,12 @@ import { MethodPill } from '../components/MethodPill';
 import { useStore } from '../store';
 
 export function Sidebar() {
-  const { groups, activeId, selectEndpoint, goOverview, openAuth, token } = useStore();
+  const { groups, activeId, selectEndpoint, selectGroup, goOverview, openAuth, token } = useStore();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, true])),
   );
-  const toggle = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !s[id] }));
+  const toggle = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !(s[id] ?? true) }));
+  const ensureOpen = (id: string) => setOpenGroups((s) => ({ ...s, [id]: true }));
 
   return (
     <aside className="sidebar">
@@ -30,11 +31,37 @@ export function Sidebar() {
 
         {groups.map((g) => (
           <div key={g.id} className="nav-group" data-open={openGroups[g.id] ?? true}>
-            <button className="nav-group-title" onClick={() => toggle(g.id)}>
-              <ChevronDown size={12} className="chev" />
+            <div
+              className="nav-group-title"
+              data-active={activeId === g.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                selectGroup(g.id);
+                ensureOpen(g.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  selectGroup(g.id);
+                  ensureOpen(g.id);
+                }
+              }}
+            >
+              <button
+                type="button"
+                className="nav-group-toggle"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggle(g.id);
+                }}
+                aria-label={openGroups[g.id] ?? true ? 'Collapse' : 'Expand'}
+              >
+                <ChevronDown size={12} className="chev" />
+              </button>
               <span>{g.name}</span>
               <span className="nav-group-count">{g.endpoints.length}</span>
-            </button>
+            </div>
             <div className="nav-items">
               {g.endpoints.map((ep) => (
                 <button

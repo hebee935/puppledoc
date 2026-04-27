@@ -18,6 +18,7 @@ interface UiState {
 
   load: (doc: OpenApiDoc) => void;
   selectEndpoint: (id: string) => void;
+  selectGroup: (groupId: string) => void;
   goOverview: () => void;
   setToken: (t: string) => void;
   setServer: (u: string) => void;
@@ -31,6 +32,30 @@ interface UiState {
   setSidebarWidth: (w: number) => void;
   setTestWidth: (w: number) => void;
   getActive: () => Endpoint | null;
+  /** Re-sync activeId from window.location.hash (called by a hashchange listener). */
+  syncFromHash: () => void;
+}
+
+function readHashId(): string | null {
+  const raw = window.location.hash.replace(/^#/, '');
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function writeHash(id: string | null): void {
+  const target = id ? `#${encodeURIComponent(id)}` : '';
+  if (window.location.hash === target) return;
+  if (id) {
+    // Setting hash auto-pushes to history; back/forward then traverses selections.
+    window.location.hash = encodeURIComponent(id);
+  } else {
+    // Clear hash without leaving "#" in the URL.
+    history.pushState(null, '', window.location.pathname + window.location.search);
+  }
 }
 
 const STORAGE_KEYS = {
@@ -76,13 +101,14 @@ export const useStore = create<UiState>((set, get) => ({
     const groups = normalize(doc);
     const endpoints = flattenEndpoints(groups);
     const savedId = localStorage.getItem(STORAGE_KEYS.activeId);
-    // On fresh visit (no saved id) land on overview. Returning visitors resume
-    // where they were. The literal '__overview__' pins overview explicitly.
-    const activeId = savedId === '__overview__'
-      ? null
-      : savedId && endpoints.some((e) => e.id === savedId)
-        ? savedId
-        : null;
+    const hashId = readHashId();
+    // Priority: URL hash (deep-link) > localStorage (resume) > overview.
+    // The literal '__overview__' pins overview explicitly.
+    const validate = (id: string | null): string | null => {
+      if (!id || id === '__overview__') return null;
+      return endpoints.some((e) => e.id === id) || groups.some((g) => g.id === id) ? id : null;
+    };
+    const activeId = validate(hashId) ?? validate(savedId);
 
     const defaultServer =
       get().server ||
@@ -93,14 +119,27 @@ export const useStore = create<UiState>((set, get) => ({
     set({ doc, groups, activeId, server: defaultServer });
     if (activeId) localStorage.setItem(STORAGE_KEYS.activeId, activeId);
     localStorage.setItem(STORAGE_KEYS.server, defaultServer);
+    // Reflect resolved activeId into the URL hash without adding a history
+    // entry, so refreshes and shares stay in sync from the start.
+    const target = activeId ? `#${encodeURIComponent(activeId)}` : '';
+    if (window.location.hash !== target) {
+      history.replaceState(null, '', window.location.pathname + window.location.search + target);
+    }
   },
   selectEndpoint: (id) => {
     set({ activeId: id });
     localStorage.setItem(STORAGE_KEYS.activeId, id);
+    writeHash(id);
+  },
+  selectGroup: (groupId) => {
+    set({ activeId: groupId });
+    localStorage.setItem(STORAGE_KEYS.activeId, groupId);
+    writeHash(groupId);
   },
   goOverview: () => {
     set({ activeId: null });
     localStorage.setItem(STORAGE_KEYS.activeId, '__overview__');
+    writeHash(null);
   },
   setToken: (t) => {
     set({ token: t });
@@ -137,5 +176,19 @@ export const useStore = create<UiState>((set, get) => ({
     if (!activeId) return null;
     for (const g of groups) for (const e of g.endpoints) if (e.id === activeId) return e;
     return null;
+  },
+  syncFromHash: () => {
+    const { groups, activeId } = get();
+    const endpoints = flattenEndpoints(groups);
+    const hashId = readHashId();
+    const next = !hashId
+      ? null
+      : endpoints.some((e) => e.id === hashId) || groups.some((g) => g.id === hashId)
+        ? hashId
+        : activeId;
+    if (next === activeId) return;
+    set({ activeId: next });
+    if (next) localStorage.setItem(STORAGE_KEYS.activeId, next);
+    else localStorage.setItem(STORAGE_KEYS.activeId, '__overview__');
   },
 }));

@@ -49,6 +49,7 @@ export interface WsChannelMeta {
   path?: string;
   namespace?: string;
   events: WsEventMeta[];
+  conn?: ConnHandshake;
 }
 
 export interface WsChannelDoc {
@@ -56,6 +57,32 @@ export interface WsChannelDoc {
   url: string;
   namespace?: string;
   events: WsEventDoc[];
+  conn?: ConnHandshake;
+}
+
+/**
+ * Shape of a single handshake input, mirroring `@nestjs/swagger`'s
+ * `ApiQueryOptions` / `ApiHeaderOptions` so callers don't have to learn a
+ * second vocabulary.
+ */
+export interface ConnInputOptions {
+  name: string;
+  required?: boolean;
+  description?: string;
+  example?: string;
+}
+
+export interface ConnOptions {
+  /** Markdown describing how the connection authenticates / hand-shakes. */
+  description?: string;
+}
+
+/** Aggregated handshake doc consumed by the generator + UI. */
+export interface ConnHandshake {
+  description?: string;
+  query?: ConnInputOptions[];
+  headers?: ConnInputOptions[];
+  auth?: ConnInputOptions[];
 }
 
 export interface WsEventDoc {

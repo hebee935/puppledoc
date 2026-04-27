@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Send, Square } from 'lucide-react';
+import { Play, Plus, Send, Square, X } from 'lucide-react';
 import type { OpenApiDoc, WsConnectionEndpoint, WsEventEndpoint } from '../types';
 import { MethodPill } from '../components/MethodPill';
 import { buildExampleFromSchema } from '../samples';
@@ -28,6 +28,8 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
   const [state, setState] = useState<WsState>('idle');
   const [frames, setFrames] = useState<WsFrame[]>([]);
   const [compose, setCompose] = useState(() => initialCompose(doc, endpoint));
+  const [query, setQuery] = useState<Array<{ key: string; value: string }>>([]);
+  const [subprotocols, setSubprotocols] = useState('');
   const clientRef = useRef<WsClient | null>(null);
   const pendingRef = useRef<unknown[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,8 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
     setCompose(initialCompose(doc, endpoint));
     setFrames([]);
     setState('idle');
+    setQuery([]);
+    setSubprotocols('');
     clientRef.current?.close();
     clientRef.current = null;
   }, [doc, endpoint]);
@@ -51,9 +55,20 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
     const url = channel.url.startsWith('ws://') || channel.url.startsWith('wss://')
       ? channel.url
       : `${server.replace(/^http/, 'ws')}${channel.url}`;
+    const queryObj: Record<string, string> = {};
+    for (const { key, value } of query) {
+      const k = key.trim();
+      if (k) queryObj[k] = value;
+    }
+    const protocols = subprotocols
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     clientRef.current = openWs({
       url,
       token: endpoint.auth ? token : undefined,
+      query: queryObj,
+      protocols: protocols.length > 0 ? protocols : undefined,
       onState: (s) => {
         setState(s);
         if (s === 'connected' && pendingRef.current.length > 0) {
@@ -144,6 +159,78 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
           </button>
         )}
       </div>
+
+      <details className="wss-handshake" open>
+        <summary>Handshake</summary>
+        <div className="wss-hs-section">
+          <div className="wss-hs-head">
+            <span>Query params</span>
+            <button
+              type="button"
+              className="wss-hs-add"
+              onClick={() => setQuery((q) => [...q, { key: '', value: '' }])}
+              disabled={state === 'connected' || state === 'connecting'}
+            >
+              <Plus size={11} /> Add
+            </button>
+          </div>
+          {query.length === 0 ? (
+            <div className="wss-hs-empty">
+              None. Token from Authorize is appended automatically when the connection requires auth.
+            </div>
+          ) : (
+            query.map((row, i) => (
+              <div className="wss-hs-row" key={i}>
+                <input
+                  className="input"
+                  placeholder="key"
+                  value={row.key}
+                  onChange={(e) =>
+                    setQuery((q) => q.map((r, j) => (j === i ? { ...r, key: e.target.value } : r)))
+                  }
+                  spellCheck={false}
+                  disabled={state === 'connected' || state === 'connecting'}
+                />
+                <input
+                  className="input"
+                  placeholder="value"
+                  value={row.value}
+                  onChange={(e) =>
+                    setQuery((q) => q.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)))
+                  }
+                  spellCheck={false}
+                  disabled={state === 'connected' || state === 'connecting'}
+                />
+                <button
+                  type="button"
+                  className="wss-hs-remove"
+                  onClick={() => setQuery((q) => q.filter((_, j) => j !== i))}
+                  disabled={state === 'connected' || state === 'connecting'}
+                  aria-label="Remove"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className="wss-hs-section">
+          <div className="wss-hs-head">
+            <span>Subprotocols</span>
+            <span className="wss-hs-meta">Sec-WebSocket-Protocol</span>
+          </div>
+          <input
+            className="input"
+            placeholder="comma-separated, e.g. v1.chat, json.v2"
+            value={subprotocols}
+            onChange={(e) => setSubprotocols(e.target.value)}
+            spellCheck={false}
+            disabled={state === 'connected' || state === 'connecting'}
+          />
+        </div>
+
+      </details>
 
       <div className="wss-log" ref={logRef} style={{ maxHeight: 320 }}>
         {visibleFrames.length === 0 && (

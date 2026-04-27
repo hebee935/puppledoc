@@ -32,17 +32,19 @@ export function serveUi(
 
   // index.html with bootstrap payload injected (title, theme, servers). We also
   // inject `<base href="{prefix}/">` so relative asset paths resolve correctly
-  // whether the user landed on `/docs` or `/docs/`.
-  const indexHtml = readFileSync(indexPath, 'utf8');
+  // whether the user landed on `/docs` or `/docs/`. Read per request so that
+  // rebuilding the UI during `pnpm dev` is reflected immediately without
+  // restarting the host server.
   const bootstrap = { basePath: prefix, ui };
   const baseHref = prefix ? `${prefix}/` : '/';
-  const injected = indexHtml.replace(
-    /<head>/i,
-    `<head><base href="${baseHref}"><script>window.__SPACE_API__ = ${JSON.stringify(bootstrap).replace(/</g, '\\u003c')};</script>`,
-  );
+  const renderIndex = () =>
+    readFileSync(indexPath, 'utf8').replace(
+      /<head>/i,
+      `<head><base href="${baseHref}"><script>window.__SPACE_API__ = ${JSON.stringify(bootstrap).replace(/</g, '\\u003c')};</script>`,
+    );
 
-  http.get(prefix, (_req: unknown, res: any) => sendHtml(res, injected));
-  http.get(`${prefix}/`, (_req: unknown, res: any) => sendHtml(res, injected));
+  http.get(prefix, (_req: unknown, res: any) => sendHtml(res, renderIndex()));
+  http.get(`${prefix}/`, (_req: unknown, res: any) => sendHtml(res, renderIndex()));
 
   // Hash-named assets and any other static files.
   mountStatic(http, `${prefix}/assets`, join(uiDir, 'assets'));
@@ -73,17 +75,18 @@ function normalizePath(p: string): string {
 }
 
 function resolveUiIndex(): string {
+  // Prefer the workspace UI package when available — it tracks `pnpm dev`
+  // rebuilds immediately and avoids serving a stale ./ui copy that lingers
+  // from a previous `pnpm publish` (which runs `bundle-ui` as prepublishOnly).
+  try {
+    return requireFrom.resolve('@puppledoc/space-ui/dist/index.html');
+  } catch { /* not in workspace — fall through to bundled copy */ }
   // Published layout: UI copied into ./ui at publish time, sits alongside dist/.
   const bundled = join(HERE, '..', 'ui', 'index.html');
   if (existsSync(bundled)) return bundled;
-  // Workspace dev layout: space-ui is a sibling package resolved via pnpm.
-  try {
-    return requireFrom.resolve('@puppledoc/space-ui/dist/index.html');
-  } catch {
-    throw new Error(
-      '[@puppledoc/nestjs-api-reference] Could not locate the UI bundle. In development, run `pnpm --filter @puppledoc/space-ui build`; if this is an installed package, reinstall — the ./ui directory is missing.',
-    );
-  }
+  throw new Error(
+    '[@puppledoc/nestjs-api-reference] Could not locate the UI bundle. In development, run `pnpm --filter @puppledoc/space-ui build`; if this is an installed package, reinstall — the ./ui directory is missing.',
+  );
 }
 
 function mountStatic(http: HttpServer, mountPath: string, dir: string) {

@@ -1,4 +1,4 @@
-import { Command, Github, Menu, Moon, Sun } from 'lucide-react';
+import { Command, Download, Menu, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 
@@ -48,12 +48,12 @@ export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
         </button>
         <a
           className="topbar-icon-btn"
-          href="https://github.com/"
-          target="_blank"
-          rel="noreferrer"
-          aria-label="GitHub"
+          href={`${bootstrap.basePath || ''}/openapi.json`}
+          download={`${(doc?.info?.title ?? 'openapi').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'openapi'}.json`}
+          aria-label="Download OpenAPI spec"
+          title="Download OpenAPI spec"
         >
-          <Github size={16} />
+          <Download size={16} />
         </a>
       </div>
     </header>

@@ -38,9 +38,12 @@ export async function enrichWithWebsocket(
     }
     wsChannels.push({
       name: ch.name,
-      url: ch.path ?? `/${ch.name.toLowerCase()}`,
+      // Nest gateways set either `path` (raw ws adapter) or `namespace`
+      // (socket.io) as the URL; only one of the two is populated in practice.
+      url: ch.path ?? ch.namespace ?? `/${ch.name.toLowerCase()}`,
       namespace: ch.namespace,
       events,
+      conn: ch.conn,
     });
   }
 

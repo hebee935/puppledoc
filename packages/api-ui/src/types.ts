@@ -76,6 +76,21 @@ export interface WsChannel {
   url: string;
   namespace?: string;
   events: WsEvent[];
+  conn?: ConnHandshake;
+}
+
+export interface ConnInputOptions {
+  name: string;
+  required?: boolean;
+  description?: string;
+  example?: string;
+}
+
+export interface ConnHandshake {
+  description?: string;
+  query?: ConnInputOptions[];
+  headers?: ConnInputOptions[];
+  auth?: ConnInputOptions[];
 }
 
 export interface WsEvent {
@@ -97,7 +112,7 @@ export type EndpointKind = 'rest' | 'ws-connection' | 'ws-event';
 export interface BaseEndpoint {
   id: string;
   kind: EndpointKind;
-  method: string; // 'GET' | 'POST' | ... | 'WSS' | 'SEND' | 'RECV'
+  method: string; // 'GET' | 'POST' | ... | 'CONN' | 'SEND' | 'RECV'
   path: string;   // REST path or ws url or `type: "event.name"`
   title: string;  // summary / event name
   description?: string;

@@ -26,14 +26,14 @@ git init
 git add -A
 git commit -m "Initial release of @puppledoc/nestjs-api-reference"
 git branch -M main
-git remote add origin git@github.com:OWNER/space-api.git
+git remote add origin git@github.com:hebee935/puppledoc.git
 git push -u origin main
 ```
 
 Then update the three placeholders:
 
 ```bash
-rg -l 'github.com/OWNER/space-api' | xargs sed -i '' 's|github.com/OWNER/space-api|github.com/YOUR_ORG/space-api|g'
+rg -l 'github.com/hebee935/puppledoc' | xargs sed -i '' 's|github.com/hebee935/puppledoc|github.com/YOUR_ORG/space-api|g'
 ```
 
 ### 3. Log in to npm

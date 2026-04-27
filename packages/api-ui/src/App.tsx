@@ -9,7 +9,7 @@ import { useStore } from './store';
 import type { OpenApiDoc } from './types';
 
 export function App() {
-  const { load, doc, bootstrap, openPalette, openAuth, openDrawer, toggleSidebar } = useStore();
+  const { load, doc, bootstrap, openPalette, openAuth, openDrawer, toggleSidebar, syncFromHash } = useStore();
 
   useEffect(() => {
     (async () => {
@@ -51,6 +51,14 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [openPalette, openAuth, openDrawer]);
+
+  // Hash-based deep links: any change to window.location.hash (back/forward,
+  // manual edit, copied URL) re-syncs the active page.
+  useEffect(() => {
+    const onHash = () => syncFromHash();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [syncFromHash]);
 
   if (!doc) {
     return (

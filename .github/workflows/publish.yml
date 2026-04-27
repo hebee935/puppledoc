@@ -6,7 +6,7 @@ name: Publish
 #
 # Configure the Trusted Publisher for @puppledoc/nestjs-api-reference on
 # npmjs.com before running this workflow:
-#   Repository: hebee935/space
+#   Repository: hebee935/puppledoc
 #   Workflow filename: publish.yml
 #   Environment: (leave empty)
 on:

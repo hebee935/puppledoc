@@ -6,6 +6,7 @@ import { OverviewPage } from '../pages/OverviewPage';
 import { RestEndpointPage } from '../pages/RestEndpointPage';
 import { WsConnectionPage } from '../pages/WsConnectionPage';
 import { WsEventPage } from '../pages/WsEventPage';
+import { TagSummaryPage } from '../pages/TagSummaryPage';
 
 export function Docs() {
   const { doc, groups, activeId, selectEndpoint } = useStore();
@@ -18,14 +19,16 @@ export function Docs() {
   if (!doc) return <main className="docs" />;
   const all = flattenEndpoints(groups);
   const active = all.find((e) => e.id === activeId);
-  const idx = activeId ? all.findIndex((e) => e.id === activeId) : -1;
+  const activeGroup = !active && activeId ? groups.find((g) => g.id === activeId) : undefined;
+  const idx = active ? all.findIndex((e) => e.id === active.id) : -1;
   const prev = idx > 0 ? all[idx - 1] : null;
   const next = idx >= 0 && idx < all.length - 1 ? all[idx + 1] : null;
 
   return (
     <main className="docs" ref={scrollRef}>
       <div className="docs-inner">
-        {!active && <OverviewPage doc={doc} />}
+        {!active && !activeGroup && <OverviewPage doc={doc} />}
+        {activeGroup && <TagSummaryPage group={activeGroup} />}
 
         {active?.kind === 'rest' && <RestEndpointPage doc={doc} endpoint={active} />}
         {active?.kind === 'ws-connection' && <WsConnectionPage doc={doc} endpoint={active} />}

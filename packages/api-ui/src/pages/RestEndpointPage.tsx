@@ -6,6 +6,7 @@ import { useStore } from '../store';
 import { MethodPill } from '../components/MethodPill';
 import { SchemaTree } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
+import { renderMarkdownInline } from '../markdown';
 
 interface Props {
   doc: OpenApiDoc;
@@ -259,9 +260,3 @@ function deriveTypeLabel(schema: SchemaObj | undefined): string {
   return schema.type ?? 'any';
 }
 
-function renderMarkdownInline(s: string): string {
-  const escaped = s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]!);
-  return escaped
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>');
-}

@@ -1,4 +1,5 @@
 import { useStore } from '../store';
+import { renderMarkdown } from '../markdown';
 import type { OpenApiDoc } from '../types';
 
 /**
@@ -34,7 +35,6 @@ export function OverviewPage({ doc }: { doc: OpenApiDoc }) {
           </div>
         )}
         {info.title && <h1 className="hero-title">{info.title}</h1>}
-        {info.description && <p className="hero-desc">{info.description}</p>}
       </header>
 
       {servers.length > 0 && (
@@ -50,6 +50,18 @@ export function OverviewPage({ doc }: { doc: OpenApiDoc }) {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {info.description && (
+        <section className="card overview-card">
+          <header className="card-head">
+            <h3 className="card-title">Description</h3>
+          </header>
+          <div
+            className="card-body overview-desc"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(info.description) }}
+          />
         </section>
       )}
 

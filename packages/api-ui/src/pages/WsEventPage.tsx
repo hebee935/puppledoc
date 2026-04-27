@@ -3,9 +3,8 @@ import type { OpenApiDoc, WsEventEndpoint } from '../types';
 import { resolveRef } from '../spec';
 import { MethodPill } from '../components/MethodPill';
 import { SchemaTree } from '../components/SchemaTree';
-import { JsonView } from '../components/JsonView';
-import { buildExampleFromSchema } from '../samples';
 import { useStore } from '../store';
+import { renderMarkdownInline } from '../markdown';
 
 interface Props {
   doc: OpenApiDoc;
@@ -17,8 +16,6 @@ export function WsEventPage({ doc, endpoint }: Props) {
   const ev = endpoint.event;
   const payloadSchema = resolveRef(doc, ev.payload) ?? ev.payload;
   const replySchema = resolveRef(doc, ev.reply) ?? ev.reply;
-  const exampleFrame = { type: ev.event, ...(buildExampleFromSchema(doc, payloadSchema) as object ?? {}) };
-  const exampleReply = replySchema ? buildExampleFromSchema(doc, replySchema) : undefined;
 
   return (
     <article className="endpoint-card">
@@ -48,39 +45,34 @@ export function WsEventPage({ doc, endpoint }: Props) {
           </div>
         </div>
         <h1 className="endpoint-title">{ev.summary ?? ev.event}</h1>
-        {ev.description && <p className="endpoint-desc">{ev.description}</p>}
+        {ev.description && (
+          <p
+            className="endpoint-desc"
+            dangerouslySetInnerHTML={{ __html: renderMarkdownInline(ev.description) }}
+          />
+        )}
       </header>
 
       <section className="card">
         <header className="card-head">
-          <h3 className="card-title">Frame Schema</h3>
+          <h3 className="card-title">Frame</h3>
+          <span className="card-subtitle">
+            {ev.direction === 'send' ? 'server → client' : 'client → server'}
+          </span>
         </header>
         <div className="card-body">
           <SchemaTree doc={doc} schema={payloadSchema} />
         </div>
       </section>
 
-      <section className="card">
-        <header className="card-head">
-          <h3 className="card-title">Example Frame</h3>
-        </header>
-        <div className="card-body">
-          <div className="example-block flush">
-            <JsonView data={exampleFrame} maxHeight={240} />
-          </div>
-        </div>
-      </section>
-
-      {replySchema && exampleReply !== undefined && (
+      {replySchema && (
         <section className="card">
           <header className="card-head">
-            <h3 className="card-title">Expected Reply</h3>
+            <h3 className="card-title">Reply</h3>
             <span className="card-subtitle">← server</span>
           </header>
           <div className="card-body">
-            <div className="example-block flush">
-              <JsonView data={exampleReply} maxHeight={240} />
-            </div>
+            <SchemaTree doc={doc} schema={replySchema} />
           </div>
         </section>
       )}

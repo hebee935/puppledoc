@@ -6,7 +6,7 @@ import {
   type WsResponse,
 } from '@nestjs/websockets';
 import type { Server } from 'ws';
-import { Receive, Send } from '@puppledoc/nestjs-api-reference';
+import { Conn, ConnAuth, ConnHeader, ConnQuery, Receive, Send, WsTags } from '@puppledoc/nestjs-api-reference';
 import {
   ChatAckFrameDto,
   ChatMessageFrameDto,
@@ -18,12 +18,25 @@ import {
   TypingFrameDto,
 } from './dto';
 
+@WsTags('Realtime')
 @WebSocketGateway({ path: '/realtime' })
 @Send({ event: 'hello', payload: HelloFrameDto, summary: 'Emitted right after the socket opens' })
 @Send({ event: 'presence.update', payload: PresenceFrameDto, summary: 'A channel member went online/offline' })
 @Send({ event: 'typing', payload: TypingFrameDto, summary: 'Broadcast when someone in the channel is typing' })
 export class ChatGateway {
   @WebSocketServer() server!: Server;
+
+  @Conn({
+    description:
+      'Authenticate the upgrade with a JWT (`?token=…` for browsers, `Authorization: Bearer …` for native clients) and pin the session to a workspace via the `workspace` query param.',
+  })
+  @ConnQuery({ name: 'token', required: true, description: 'JWT signed with the workspace secret.', example: 'eyJhbGciOi…' })
+  @ConnQuery({ name: 'workspace', required: true, description: 'Workspace slug. Selects which JWT secret to validate against.', example: 'acme' })
+  @ConnHeader({ name: 'Authorization', description: 'Alternative to `?token=` — `Bearer <jwt>`. Browsers can\'t set this, but `wscat`/`curl`/server-side clients can.' })
+  @ConnAuth({ name: 'token', required: true, description: 'When using socket.io clients, pass the JWT here instead of the query string.' })
+  handleConnection(_client: unknown): void {
+    // Auth + workspace pinning would go here in a real app.
+  }
 
   @Receive({
     event: 'subscribe',

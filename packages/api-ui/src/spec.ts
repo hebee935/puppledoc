@@ -50,7 +50,7 @@ export function normalize(doc: OpenApiDoc): EndpointGroup[] {
     const connection: WsConnectionEndpoint = {
       id: connId,
       kind: 'ws-connection',
-      method: 'WSS',
+      method: 'CONN',
       path: channel.url,
       title: 'Connection',
       description: `Open a WebSocket to \`${channel.url}\` and exchange JSON frames.`,

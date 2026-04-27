@@ -5,7 +5,7 @@ interface Props {
 }
 
 export function MethodPill({ method, variant = 'nav' }: Props) {
-  const aria = method === 'SEND' || method === 'RECV' || method === 'WSS'
+  const aria = method === 'SEND' || method === 'RECV' || method === 'CONN'
     ? `WebSocket ${method.toLowerCase()}`
     : `HTTP method ${method}`;
   const className = variant === 'head' ? 'test-method' : 'method-pill';

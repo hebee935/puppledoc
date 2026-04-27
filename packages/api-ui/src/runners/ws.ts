@@ -19,6 +19,8 @@ export interface WsClient {
 export interface WsOptions {
   url: string;
   token?: string;
+  /** Extra handshake query params. Override `token` when a key collides. */
+  query?: Record<string, string>;
   protocols?: string | string[];
   onState: (state: WsState) => void;
   onFrame: (frame: WsFrame) => void;
@@ -34,6 +36,11 @@ export function openWs(opts: WsOptions): WsClient {
   if (u.protocol === 'http:') u.protocol = 'ws:';
   else if (u.protocol === 'https:') u.protocol = 'wss:';
   if (opts.token) u.searchParams.set('token', opts.token);
+  if (opts.query) {
+    for (const [k, v] of Object.entries(opts.query)) {
+      if (k && v !== '') u.searchParams.set(k, v);
+    }
+  }
 
   opts.onState('connecting');
   opts.onFrame({ dir: 'system', at: Date.now(), text: `Connecting to ${u.toString()}…` });

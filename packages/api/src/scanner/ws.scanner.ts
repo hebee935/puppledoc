@@ -1,7 +1,22 @@
 import type { INestApplication, Type } from '@nestjs/common';
 import { ModulesContainer } from '@nestjs/core';
-import { NEST_GATEWAY_NAMESPACE_KEY, NEST_GATEWAY_OPTIONS_KEYS, SPACE_API_WS_EVENTS } from '../metadata/keys.js';
-import type { WsChannelMeta, WsEventMeta } from '../metadata/types.js';
+import {
+  NEST_GATEWAY_NAMESPACE_KEY,
+  NEST_GATEWAY_OPTIONS_KEYS,
+  SPACE_API_WS_CHANNEL,
+  SPACE_API_WS_CONN,
+  SPACE_API_WS_CONN_AUTH,
+  SPACE_API_WS_CONN_HEADER,
+  SPACE_API_WS_CONN_QUERY,
+  SPACE_API_WS_EVENTS,
+} from '../metadata/keys.js';
+import type {
+  ConnHandshake,
+  ConnInputOptions,
+  ConnOptions,
+  WsChannelMeta,
+  WsEventMeta,
+} from '../metadata/types.js';
 
 /**
  * Walk the Nest DI container, collect `@Receive`/`@Send` events, and group them
@@ -32,8 +47,12 @@ export function scanWsChannels(app: INestApplication): WsChannelMeta[] {
     const gatewayMeta = readGatewayMeta(metatype);
 
     if (gatewayMeta) {
+      const tag = Reflect.getMetadata(SPACE_API_WS_CHANNEL, metatype) as
+        | { name?: string }
+        | undefined;
+      const conn = readConnHandshake(metatype);
       gateways.set(metatype, {
-        meta: { name: metatype.name, ...gatewayMeta },
+        meta: { name: tag?.name ?? metatype.name, ...gatewayMeta, conn },
         events: events.slice(),
       });
     } else if (events.length > 0) {
@@ -68,7 +87,13 @@ export function scanWsChannels(app: INestApplication): WsChannelMeta[] {
   const channels: WsChannelMeta[] = [];
   for (const { meta, events } of gateways.values()) {
     if (events.length === 0) continue;
-    channels.push({ name: meta.name, path: meta.path, namespace: meta.namespace, events });
+    channels.push({
+      name: meta.name,
+      path: meta.path,
+      namespace: meta.namespace,
+      events,
+      conn: meta.conn,
+    });
   }
   for (const { meta, events } of synthetic.values()) {
     channels.push({ name: meta.name, events });
@@ -80,6 +105,34 @@ interface GatewayMeta {
   name: string;
   path?: string;
   namespace?: string;
+  conn?: ConnHandshake;
+}
+
+function readConnHandshake(ctor: Type<unknown>): ConnHandshake | undefined {
+  // Decorators are attached to the `handleConnection` method (per
+  // `OnGatewayConnection`); fall back to the class itself so the legacy
+  // class-level form keeps working during the deprecation window.
+  const targets: Array<Parameters<typeof Reflect.getMetadata>> = [
+    [SPACE_API_WS_CONN, ctor, 'handleConnection'],
+    [SPACE_API_WS_CONN, ctor],
+  ];
+  const top = (Reflect.getMetadata(...targets[0]) ?? Reflect.getMetadata(...targets[1])) as
+    | ConnOptions
+    | undefined;
+  const query = readArray(SPACE_API_WS_CONN_QUERY, ctor);
+  const headers = readArray(SPACE_API_WS_CONN_HEADER, ctor);
+  const auth = readArray(SPACE_API_WS_CONN_AUTH, ctor);
+  const result: ConnHandshake = {};
+  if (top?.description) result.description = top.description;
+  if (query?.length) result.query = query;
+  if (headers?.length) result.headers = headers;
+  if (auth?.length) result.auth = auth;
+  return result.description || result.query || result.headers || result.auth ? result : undefined;
+}
+
+function readArray(key: symbol, ctor: Type<unknown>): ConnInputOptions[] | undefined {
+  return (Reflect.getMetadata(key, ctor, 'handleConnection') ??
+    Reflect.getMetadata(key, ctor)) as ConnInputOptions[] | undefined;
 }
 
 function readGatewayMeta(ctor: Type<unknown>): { path?: string; namespace?: string } | null {
