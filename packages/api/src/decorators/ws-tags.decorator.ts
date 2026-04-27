@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { SPACE_API_WS_CHANNEL } from '../metadata/keys.js';
+import { PUPPLEDOC_WS_CHANNEL } from '../metadata/keys.js';
 
 /**
  * Tag a WebSocket gateway. Mirrors `@ApiTags` — pass one or more strings;
@@ -17,7 +17,7 @@ export const WsTags = (...names: string[]): ClassDecorator =>
     const cleaned = names.filter(Boolean);
     if (cleaned.length === 0) return;
     Reflect.defineMetadata(
-      SPACE_API_WS_CHANNEL,
+      PUPPLEDOC_WS_CHANNEL,
       { name: cleaned[0], tags: cleaned },
       target,
     );

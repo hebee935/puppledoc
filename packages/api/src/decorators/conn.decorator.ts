@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import {
-  SPACE_API_WS_CONN,
-  SPACE_API_WS_CONN_BEARER,
-  SPACE_API_WS_CONN_CLOSE,
-  SPACE_API_WS_CONN_HEADER,
-  SPACE_API_WS_CONN_QUERY,
-  SPACE_API_WS_CONN_SUBPROTOCOLS,
+  PUPPLEDOC_WS_CONN,
+  PUPPLEDOC_WS_CONN_BEARER,
+  PUPPLEDOC_WS_CONN_CLOSE,
+  PUPPLEDOC_WS_CONN_HEADER,
+  PUPPLEDOC_WS_CONN_QUERY,
+  PUPPLEDOC_WS_CONN_SUBPROTOCOLS,
 } from '../metadata/keys.js';
 import type { ConnCloseCodeOptions, ConnInputDecl, ConnOptions } from '../metadata/types.js';
 
@@ -39,12 +39,12 @@ import type { ConnCloseCodeOptions, ConnInputDecl, ConnOptions } from '../metada
  */
 export const Conn = (opts: ConnOptions = {}): MethodDecorator =>
   (target, propertyKey) => {
-    Reflect.defineMetadata(SPACE_API_WS_CONN, opts, target.constructor, propertyKey);
+    Reflect.defineMetadata(PUPPLEDOC_WS_CONN, opts, target.constructor, propertyKey);
   };
 
 /** Declare a handshake URL query param. Pass an inline field decl or a DTO class. */
 export const ConnQuery = (decl: ConnInputDecl): MethodDecorator =>
-  pushTo(SPACE_API_WS_CONN_QUERY, decl);
+  pushTo(PUPPLEDOC_WS_CONN_QUERY, decl);
 
 /**
  * Declare a header expected on the upgrade. Browsers can't set arbitrary
@@ -52,7 +52,7 @@ export const ConnQuery = (decl: ConnInputDecl): MethodDecorator =>
  * clients (curl, wscat, native ws libraries) and socket.io's `extraHeaders`.
  */
 export const ConnHeader = (decl: ConnInputDecl): MethodDecorator =>
-  pushTo(SPACE_API_WS_CONN_HEADER, decl);
+  pushTo(PUPPLEDOC_WS_CONN_HEADER, decl);
 
 /**
  * Mark the connection as bearer-token authenticated, mirroring
@@ -66,7 +66,7 @@ export const ConnHeader = (decl: ConnInputDecl): MethodDecorator =>
 export const ConnBearerAuth = (name = 'bearer'): MethodDecorator =>
   (target, propertyKey) => {
     Reflect.defineMetadata(
-      SPACE_API_WS_CONN_BEARER,
+      PUPPLEDOC_WS_CONN_BEARER,
       { name },
       target.constructor,
       propertyKey,
@@ -86,7 +86,7 @@ export const ConnBearerAuth = (name = 'bearer'): MethodDecorator =>
 export const ConnSubprotocols = (...protocols: string[]): MethodDecorator =>
   (target, propertyKey) => {
     Reflect.defineMetadata(
-      SPACE_API_WS_CONN_SUBPROTOCOLS,
+      PUPPLEDOC_WS_CONN_SUBPROTOCOLS,
       protocols.filter(Boolean),
       target.constructor,
       propertyKey,
@@ -107,11 +107,11 @@ export const ConnSubprotocols = (...protocols: string[]): MethodDecorator =>
 export const ConnCloseCode = (opts: ConnCloseCodeOptions): MethodDecorator =>
   (target, propertyKey) => {
     const existing =
-      (Reflect.getOwnMetadata(SPACE_API_WS_CONN_CLOSE, target.constructor, propertyKey) as
+      (Reflect.getOwnMetadata(PUPPLEDOC_WS_CONN_CLOSE, target.constructor, propertyKey) as
         | ConnCloseCodeOptions[]
         | undefined) ?? [];
     Reflect.defineMetadata(
-      SPACE_API_WS_CONN_CLOSE,
+      PUPPLEDOC_WS_CONN_CLOSE,
       [opts, ...existing],
       target.constructor,
       propertyKey,

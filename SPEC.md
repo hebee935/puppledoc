@@ -10,7 +10,7 @@ NestJS 플러그인. `@nestjs/swagger`가 만드는 OpenAPI 3.1 문서에 WebSoc
 
 ## 0. 설계 원칙
 
-1. **Small surface** — 퍼블릭 API는 `@Receive`, `@Send`, `SpaceApiModule.setup()` 세 개가 전부. 나머지는 internal.
+1. **Small surface** — 퍼블릭 API는 `@Receive`, `@Send`, `PuppleDocModule.setup()` 세 개가 전부. 나머지는 internal.
 2. **Mirror SwaggerModule** — Nest 개발자가 기존 지식 그대로 쓸 수 있게 API 모양 그대로 따라간다.
 3. **Headless core + static UI** — core는 JSON spec + express static만 책임지고, UI는 번들된 정적 파일(`@puppledoc/space-ui/dist`)을 서빙. UI 교체/커스텀 가능.
 4. **실제 요청만** — 시뮬레이션 모드는 v0.1 범위 밖. 브라우저가 실제 fetch/WebSocket을 연다.
@@ -42,7 +42,7 @@ space-api/
 │   │   │   │   ├── openapi.ts       # @nestjs/swagger 위임 + x-websocket 주입
 │   │   │   │   └── schema.ts        # DTO → JSON Schema (class-validator 메타 활용)
 │   │   │   ├── module/
-│   │   │   │   └── space-api.module.ts
+│   │   │   │   └── puppledoc.module.ts
 │   │   │   └── server/
 │   │   │       └── ui-adapter.ts    # express/fastify 정적 서빙
 │   │   ├── package.json
@@ -98,8 +98,8 @@ space-api/
 ```ts
 // packages/api/src/index.ts
 export { Receive, Send } from './decorators';
-export { SpaceApiModule } from './module/space-api.module';
-export type { SpaceApiOptions, WsEventDirection, WsEventMeta } from './metadata/types';
+export { PuppleDocModule } from './module/puppledoc.module';
+export type { PuppleDocOptions, WsEventDirection, WsEventMeta } from './metadata/types';
 ```
 
 ### 2.2 데코레이터
@@ -175,7 +175,7 @@ export class WsScanner {
 
 ```ts
 // generator/openapi.ts
-export function buildDocument(app: INestApplication, options: SpaceApiOptions): OpenAPIObject {
+export function buildDocument(app: INestApplication, options: PuppleDocOptions): OpenAPIObject {
   // 1. REST: @nestjs/swagger에 위임
   const base = SwaggerModule.createDocument(app, options.openapi);
 
@@ -209,9 +209,9 @@ export function buildDocument(app: INestApplication, options: SpaceApiOptions): 
 ### 2.5 모듈 / setup
 
 ```ts
-// module/space-api.module.ts
-export class SpaceApiModule {
-  static setup(path: string, app: INestApplication, options: SpaceApiOptions): void {
+// module/puppledoc.module.ts
+export class PuppleDocModule {
+  static setup(path: string, app: INestApplication, options: PuppleDocOptions): void {
     const document = buildDocument(app, options);
 
     const httpAdapter = app.getHttpAdapter();
@@ -222,7 +222,7 @@ export class SpaceApiModule {
   }
 }
 
-export interface SpaceApiOptions {
+export interface PuppleDocOptions {
   openapi: Omit<OpenAPIObject, 'paths'>;  // DocumentBuilder().build() 결과
   ui?: {
     title?: string;
@@ -241,7 +241,7 @@ const config = new DocumentBuilder()
   .addBearerAuth()
   .build();
 
-SpaceApiModule.setup('docs', app, {
+PuppleDocModule.setup('docs', app, {
   openapi: config,
   ui: { servers: [{ label: 'Local', url: 'http://localhost:3000' }] },
 });
@@ -438,7 +438,7 @@ pnpm --filter playground start:dev    # NestJS 샘플 (실제 WS/REST 동작)
 Playground 앱은:
 - `ChatGateway`에 `@Receive`/`@Send` 3~4개씩
 - `WorkspacesController`에 CRUD
-- `main.ts`에서 `SpaceApiModule.setup('docs', app, ...)` 호출
+- `main.ts`에서 `PuppleDocModule.setup('docs', app, ...)` 호출
 - `pnpm start:dev` 후 `http://localhost:3000/docs` 접속 시 UI 뜨는지 확인
 
 UI는 개발 시 `VITE_MOCK_SPEC=1`이면 `public/mock-openapi.json`을 쓰고, 아니면 `/docs/openapi.json` fetch.
@@ -448,7 +448,7 @@ UI는 개발 시 `VITE_MOCK_SPEC=1`이면 `public/mock-openapi.json`을 쓰고, 
 ## 6. 구현 순서 (v0.1 MVP)
 
 1. **모노레포 스캐폴드** — pnpm workspace, turbo, tsconfig.base, ESLint.
-2. **Core 데코레이터 + 스캐너 + 빈 모듈** — `SpaceApiModule.setup()`이 `openapi.json`을 200으로 내려주는 데까지.
+2. **Core 데코레이터 + 스캐너 + 빈 모듈** — `PuppleDocModule.setup()`이 `openapi.json`을 200으로 내려주는 데까지.
 3. **DTO → schema 변환** — `@nestjs/swagger` internal 재사용.
 4. **UI 스캐폴드** — Vite + React + 토큰 CSS, 레이아웃 shell (사이드바/docs/test-panel 빈 박스).
 5. **Endpoint 네비 + 상세 렌더** (REST only).

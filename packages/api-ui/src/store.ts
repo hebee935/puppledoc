@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Endpoint, EndpointGroup, OpenApiDoc, SpaceApiBootstrap } from './types';
+import type { Endpoint, EndpointGroup, OpenApiDoc, PuppleDocBootstrap } from './types';
 import { flattenEndpoints, normalize } from './spec';
 import { openWs, type WsClient, type WsFrame, type WsState } from './runners/ws';
 
@@ -51,7 +51,7 @@ const wsClients = new Map<string, WsClient>();
 const wsPending = new Map<string, unknown[]>();
 
 interface UiState {
-  bootstrap: SpaceApiBootstrap;
+  bootstrap: PuppleDocBootstrap;
   doc: OpenApiDoc | null;
   groups: EndpointGroup[];
   activeId: string | null;
@@ -124,11 +124,11 @@ function writeHash(id: string | null): void {
 }
 
 const STORAGE_KEYS = {
-  token: 'space-api:token',
-  activeId: 'space-api:activeId',
-  server: 'space-api:server',
-  sidebarWidth: 'space-api:sidebarWidth',
-  testWidth: 'space-api:testWidth',
+  token: 'puppledoc:token',
+  activeId: 'puppledoc:activeId',
+  server: 'puppledoc:server',
+  sidebarWidth: 'puppledoc:sidebarWidth',
+  testWidth: 'puppledoc:testWidth',
 };
 
 const WIDTH_BOUNDS = { min: 220, max: 720 };
@@ -143,9 +143,9 @@ function readWidth(key: string, fallback: number): number {
   return Number.isFinite(v) && v > 0 ? clampWidth(v) : fallback;
 }
 
-function readBootstrap(): SpaceApiBootstrap {
-  const w = window as { __SPACE_API__?: SpaceApiBootstrap };
-  return w.__SPACE_API__ ?? { basePath: '' };
+function readBootstrap(): PuppleDocBootstrap {
+  const w = window as { __PUPPLEDOC__?: PuppleDocBootstrap };
+  return w.__PUPPLEDOC__ ?? { basePath: '' };
 }
 
 export const useStore = create<UiState>((set, get) => ({
@@ -158,7 +158,7 @@ export const useStore = create<UiState>((set, get) => ({
   paletteOpen: false,
   authOpen: false,
   drawerOpen: false,
-  sidebarCollapsed: localStorage.getItem('space-api:sidebarCollapsed') === '1',
+  sidebarCollapsed: localStorage.getItem('puppledoc:sidebarCollapsed') === '1',
   sidebarWidth: readWidth(STORAGE_KEYS.sidebarWidth, 260),
   testWidth: readWidth(STORAGE_KEYS.testWidth, 520),
   wsSessions: {},
@@ -224,7 +224,7 @@ export const useStore = create<UiState>((set, get) => ({
   closeDrawer: () => set({ drawerOpen: false }),
   toggleSidebar: () => set((state) => {
     const next = !state.sidebarCollapsed;
-    localStorage.setItem('space-api:sidebarCollapsed', next ? '1' : '0');
+    localStorage.setItem('puppledoc:sidebarCollapsed', next ? '1' : '0');
     return { sidebarCollapsed: next };
   }),
   setSidebarWidth: (w) => {

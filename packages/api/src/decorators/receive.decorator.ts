@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { SPACE_API_WS_EVENTS } from '../metadata/keys.js';
+import { PUPPLEDOC_WS_EVENTS } from '../metadata/keys.js';
 import type { ReceiveOptions, WsEventMeta } from '../metadata/types.js';
 
 /**
@@ -14,7 +14,7 @@ import type { ReceiveOptions, WsEventMeta } from '../metadata/types.js';
 export const Receive = (opts: ReceiveOptions): MethodDecorator =>
   (target, propertyKey) => {
     const ctor = target.constructor;
-    const existing: WsEventMeta[] = Reflect.getOwnMetadata(SPACE_API_WS_EVENTS, ctor) ?? [];
+    const existing: WsEventMeta[] = Reflect.getOwnMetadata(PUPPLEDOC_WS_EVENTS, ctor) ?? [];
     // `reply` accepts either a DTO class (legacy shorthand) or `{ event, payload }`
     // when the caller wants to also document the reply's outgoing event name.
     const replyClass = typeof opts.reply === 'function'
@@ -37,5 +37,5 @@ export const Receive = (opts: ReceiveOptions): MethodDecorator =>
       channel: opts.channel,
       handler: String(propertyKey),
     });
-    Reflect.defineMetadata(SPACE_API_WS_EVENTS, existing, ctor);
+    Reflect.defineMetadata(PUPPLEDOC_WS_EVENTS, existing, ctor);
   };

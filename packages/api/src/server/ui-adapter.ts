@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { HttpServer } from '@nestjs/common';
 import type { OpenAPIObject } from '@nestjs/swagger';
-import type { SpaceApiUiOptions } from '../metadata/types.js';
+import type { PuppleDocUiOptions } from '../metadata/types.js';
 
 const requireFrom = createRequire(import.meta.url);
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -18,7 +18,7 @@ export function serveUi(
   http: HttpServer,
   basePath: string,
   document: OpenAPIObject,
-  ui: SpaceApiUiOptions = {},
+  ui: PuppleDocUiOptions = {},
 ): void {
   const indexPath = resolveUiIndex();
   const uiDir = dirname(indexPath);
@@ -40,7 +40,7 @@ export function serveUi(
   const renderIndex = () =>
     readFileSync(indexPath, 'utf8').replace(
       /<head>/i,
-      `<head><base href="${baseHref}"><script>window.__SPACE_API__ = ${JSON.stringify(bootstrap).replace(/</g, '\\u003c')};</script>`,
+      `<head><base href="${baseHref}"><script>window.__PUPPLEDOC__ = ${JSON.stringify(bootstrap).replace(/</g, '\\u003c')};</script>`,
     );
 
   http.get(prefix, (_req: unknown, res: any) => sendHtml(res, renderIndex()));

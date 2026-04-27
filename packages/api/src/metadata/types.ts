@@ -166,7 +166,7 @@ export type SchemaLike = {
   [key: string]: unknown;
 }
 
-export interface SpaceApiUiOptions {
+export interface PuppleDocUiOptions {
   /** Title shown in the sidebar brand area. Falls back to `document.info.title`. */
   title?: string;
   /** Visual theme. Only `light` is implemented in v0.1. */
@@ -176,7 +176,7 @@ export interface SpaceApiUiOptions {
 }
 
 /** @deprecated kept as an alias for compatibility — use the 4-arg `setup` form. */
-export type SpaceApiOptions = SpaceApiUiOptions;
+export type PuppleDocOptions = PuppleDocUiOptions;
 
 /** Our OpenAPI extension. Lives under `x-websocket` on the root document. */
 export interface XWebsocketExtension {

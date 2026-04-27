@@ -5,12 +5,12 @@ import { useStore } from '../store';
 export function TopBar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
   const { doc, bootstrap, openPalette, goOverview } = useStore();
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('space-api:theme') as 'light' | 'dark') ?? 'light';
+    return (localStorage.getItem('puppledoc:theme') as 'light' | 'dark') ?? 'light';
   });
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    localStorage.setItem('space-api:theme', theme);
+    localStorage.setItem('puppledoc:theme', theme);
   }, [theme]);
 
   const title = bootstrap.ui?.title ?? doc?.info?.title ?? 'API Docs';

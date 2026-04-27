@@ -160,7 +160,7 @@ export interface EndpointGroup {
   endpoints: Endpoint[];
 }
 
-export interface SpaceApiBootstrap {
+export interface PuppleDocBootstrap {
   basePath: string;
   ui?: {
     title?: string;

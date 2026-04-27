@@ -3,14 +3,14 @@ import { ModulesContainer } from '@nestjs/core';
 import {
   NEST_GATEWAY_NAMESPACE_KEY,
   NEST_GATEWAY_OPTIONS_KEYS,
-  SPACE_API_WS_CHANNEL,
-  SPACE_API_WS_CONN,
-  SPACE_API_WS_CONN_BEARER,
-  SPACE_API_WS_CONN_CLOSE,
-  SPACE_API_WS_CONN_HEADER,
-  SPACE_API_WS_CONN_QUERY,
-  SPACE_API_WS_CONN_SUBPROTOCOLS,
-  SPACE_API_WS_EVENTS,
+  PUPPLEDOC_WS_CHANNEL,
+  PUPPLEDOC_WS_CONN,
+  PUPPLEDOC_WS_CONN_BEARER,
+  PUPPLEDOC_WS_CONN_CLOSE,
+  PUPPLEDOC_WS_CONN_HEADER,
+  PUPPLEDOC_WS_CONN_QUERY,
+  PUPPLEDOC_WS_CONN_SUBPROTOCOLS,
+  PUPPLEDOC_WS_EVENTS,
 } from '../metadata/keys.js';
 import type {
   ConnCloseCodeOptions,
@@ -44,13 +44,13 @@ export function scanWsChannels(app: INestApplication): WsChannelMeta[] {
     if (!metatype || seen.has(metatype)) return;
     seen.add(metatype);
 
-    const events = (Reflect.getOwnMetadata(SPACE_API_WS_EVENTS, metatype) as
+    const events = (Reflect.getOwnMetadata(PUPPLEDOC_WS_EVENTS, metatype) as
       | WsEventMeta[]
       | undefined) ?? [];
     const gatewayMeta = readGatewayMeta(metatype);
 
     if (gatewayMeta) {
-      const tag = Reflect.getMetadata(SPACE_API_WS_CHANNEL, metatype) as
+      const tag = Reflect.getMetadata(PUPPLEDOC_WS_CHANNEL, metatype) as
         | { name?: string; tags?: string[] }
         | undefined;
       const conn = readConnHandshake(metatype);
@@ -122,16 +122,16 @@ function readConnHandshake(ctor: Type<unknown>): ConnHandshakeRaw | undefined {
   // Decorators are attached to the `handleConnection` method (per
   // `OnGatewayConnection`); fall back to the class itself so the legacy
   // class-level form keeps working during the deprecation window.
-  const top = (Reflect.getMetadata(SPACE_API_WS_CONN, ctor, 'handleConnection') ??
-    Reflect.getMetadata(SPACE_API_WS_CONN, ctor)) as ConnOptions | undefined;
-  const query = readArray(SPACE_API_WS_CONN_QUERY, ctor);
-  const headers = readArray(SPACE_API_WS_CONN_HEADER, ctor);
-  const bearer = (Reflect.getMetadata(SPACE_API_WS_CONN_BEARER, ctor, 'handleConnection') ??
-    Reflect.getMetadata(SPACE_API_WS_CONN_BEARER, ctor)) as { name: string } | undefined;
-  const subprotocols = (Reflect.getMetadata(SPACE_API_WS_CONN_SUBPROTOCOLS, ctor, 'handleConnection') ??
-    Reflect.getMetadata(SPACE_API_WS_CONN_SUBPROTOCOLS, ctor)) as string[] | undefined;
-  const closeCodes = (Reflect.getMetadata(SPACE_API_WS_CONN_CLOSE, ctor, 'handleConnection') ??
-    Reflect.getMetadata(SPACE_API_WS_CONN_CLOSE, ctor)) as ConnCloseCodeOptions[] | undefined;
+  const top = (Reflect.getMetadata(PUPPLEDOC_WS_CONN, ctor, 'handleConnection') ??
+    Reflect.getMetadata(PUPPLEDOC_WS_CONN, ctor)) as ConnOptions | undefined;
+  const query = readArray(PUPPLEDOC_WS_CONN_QUERY, ctor);
+  const headers = readArray(PUPPLEDOC_WS_CONN_HEADER, ctor);
+  const bearer = (Reflect.getMetadata(PUPPLEDOC_WS_CONN_BEARER, ctor, 'handleConnection') ??
+    Reflect.getMetadata(PUPPLEDOC_WS_CONN_BEARER, ctor)) as { name: string } | undefined;
+  const subprotocols = (Reflect.getMetadata(PUPPLEDOC_WS_CONN_SUBPROTOCOLS, ctor, 'handleConnection') ??
+    Reflect.getMetadata(PUPPLEDOC_WS_CONN_SUBPROTOCOLS, ctor)) as string[] | undefined;
+  const closeCodes = (Reflect.getMetadata(PUPPLEDOC_WS_CONN_CLOSE, ctor, 'handleConnection') ??
+    Reflect.getMetadata(PUPPLEDOC_WS_CONN_CLOSE, ctor)) as ConnCloseCodeOptions[] | undefined;
   const result: ConnHandshakeRaw = {};
   if (top?.description) result.description = top.description;
   if (query?.length) result.query = query;

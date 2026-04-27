@@ -16,7 +16,7 @@ Peers: `@nestjs/common`, `@nestjs/core`, `@nestjs/swagger`, `@nestjs/websockets`
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder } from '@nestjs/swagger';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { SpaceApiModule } from '@puppledoc/nestjs-api-reference';
+import { PuppleDocModule } from '@puppledoc/nestjs-api-reference';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -26,7 +26,7 @@ async function bootstrap() {
   const config = new DocumentBuilder()
     .setTitle('My API').setVersion('1.0').addBearerAuth().build();
 
-  await SpaceApiModule.setup('/docs', app, config, {
+  await PuppleDocModule.setup('/docs', app, config, {
     servers: [{ label: 'Local', url: 'http://localhost:3000' }],
   });
 
@@ -40,7 +40,7 @@ Already have a pre-built document? Pass it instead — the signature matches
 
 ```ts
 const document = SwaggerModule.createDocument(app, config);
-SpaceApiModule.setup('/docs', app, document);
+PuppleDocModule.setup('/docs', app, document);
 ```
 
 Browse `http://localhost:3000/docs`. The enriched OpenAPI JSON is at `/docs/openapi.json`.
@@ -99,13 +99,13 @@ interface SendOptions {
 }
 ```
 
-### `SpaceApiModule.setup(path, app, configOrDocument, options?)`
+### `PuppleDocModule.setup(path, app, configOrDocument, options?)`
 
 Overloaded: accepts a `DocumentBuilder().build()` config, or a full
 `SwaggerModule.createDocument(...)` result. WS metadata is merged in either way.
 
 ```ts
-interface SpaceApiUiOptions {
+interface PuppleDocUiOptions {
   title?: string;                                   // sidebar brand (fallback: document.info.title)
   theme?: 'light' | 'dark' | 'auto';                // v0.1: light only
   servers?: { label: string; url: string }[];       // base URL switcher

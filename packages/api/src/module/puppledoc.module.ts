@@ -2,7 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
 import { enrichWithWebsocket } from '../generator/openapi.js';
 import { serveUi } from '../server/ui-adapter.js';
-import type { SpaceApiUiOptions } from '../metadata/types.js';
+import type { PuppleDocUiOptions } from '../metadata/types.js';
 
 /** The minimal shape produced by `new DocumentBuilder().build()`. */
 type OpenApiConfig = Omit<OpenAPIObject, 'paths'>;
@@ -15,27 +15,27 @@ type OpenApiConfig = Omit<OpenAPIObject, 'paths'>;
  * ```ts
  * const config = new DocumentBuilder()
  *   .setTitle('My API').setVersion('1.0').addBearerAuth().build();
- * SpaceApiModule.setup('/docs', app, config);
+ * PuppleDocModule.setup('/docs', app, config);
  * ```
  */
-export class SpaceApiModule {
+export class PuppleDocModule {
   static setup(
     path: string,
     app: INestApplication,
     config: OpenApiConfig,
-    options?: SpaceApiUiOptions,
+    options?: PuppleDocUiOptions,
   ): Promise<void>;
   static setup(
     path: string,
     app: INestApplication,
     document: OpenAPIObject,
-    options?: SpaceApiUiOptions,
+    options?: PuppleDocUiOptions,
   ): Promise<void>;
   static async setup(
     path: string,
     app: INestApplication,
     configOrDocument: OpenApiConfig | OpenAPIObject,
-    options: SpaceApiUiOptions = {},
+    options: PuppleDocUiOptions = {},
   ): Promise<void> {
     // A built document has `paths`; a raw config from DocumentBuilder doesn't.
     const document: OpenAPIObject = isBuiltDocument(configOrDocument)

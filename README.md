@@ -20,7 +20,7 @@ pnpm add @puppledoc/nestjs-api-reference
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder } from '@nestjs/swagger';
 import { WsAdapter } from '@nestjs/platform-ws';
-import { SpaceApiModule } from '@puppledoc/nestjs-api-reference';
+import { PuppleDocModule } from '@puppledoc/nestjs-api-reference';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -33,7 +33,7 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  await SpaceApiModule.setup('/docs', app, config, {
+  await PuppleDocModule.setup('/docs', app, config, {
     servers: [{ label: 'Local', url: 'http://localhost:3000' }],
   });
 
@@ -42,7 +42,7 @@ async function bootstrap() {
 bootstrap();
 ```
 
-`SpaceApiModule.setup`이 내부에서 `SwaggerModule.createDocument`를 호출하고, `@Receive` / `@Send` 메타를 스캔해서 WebSocket 섹션을 덧붙입니다. 이미 만들어둔 document가 있으면 세 번째 인자로 그대로 넘길 수도 있습니다 (`Swagger`와 동일한 시그니처).
+`PuppleDocModule.setup`이 내부에서 `SwaggerModule.createDocument`를 호출하고, `@Receive` / `@Send` 메타를 스캔해서 WebSocket 섹션을 덧붙입니다. 이미 만들어둔 document가 있으면 세 번째 인자로 그대로 넘길 수도 있습니다 (`Swagger`와 동일한 시그니처).
 
 ### WebSocket 문서화
 

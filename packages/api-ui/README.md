@@ -16,10 +16,10 @@ dist/
 
 ## Runtime contract
 
-The UI reads `window.__SPACE_API__` on boot:
+The UI reads `window.__PUPPLEDOC__` on boot:
 
 ```ts
-interface SpaceApiBootstrap {
+interface PuppleDocBootstrap {
   basePath: string;         // e.g. '/docs'
   ui?: {
     title?: string;

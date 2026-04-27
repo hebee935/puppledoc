@@ -10,7 +10,7 @@ export {
   ConnSubprotocols,
   ConnCloseCode,
 } from './decorators/conn.decorator.js';
-export { SpaceApiModule } from './module/space-api.module.js';
+export { PuppleDocModule } from './module/puppledoc.module.js';
 export type {
   ConnOptions,
   ConnInputOptions,
@@ -20,8 +20,8 @@ export type {
   ConnCloseCodeOptions,
   ReceiveOptions,
   SendOptions,
-  SpaceApiOptions,
-  SpaceApiUiOptions,
+  PuppleDocOptions,
+  PuppleDocUiOptions,
   WsEventDirection,
   WsEventMeta,
   WsChannelMeta,
