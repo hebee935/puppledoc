@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eraser, Play, Plus, Send, Square, X } from 'lucide-react';
 import type { OpenApiDoc, WsConnectionEndpoint, WsEventEndpoint } from '../types';
 import { MethodPill } from '../components/MethodPill';
@@ -49,6 +49,23 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
   useEffect(() => {
     setCompose(initialCompose(doc, endpoint));
   }, [doc, endpoint]);
+
+  // Pre-populate handshake query rows from the channel's `@ConnQuery`
+  // declarations on first touch. Once the session exists (even with an empty
+  // query array because the user cleared it), we don't re-seed.
+  const declaredQuery = useMemo(
+    () => channel.conn?.query ?? [],
+    [channel.conn?.query],
+  );
+  const declaredByName = useMemo(
+    () => Object.fromEntries(declaredQuery.map((q) => [q.name, q])),
+    [declaredQuery],
+  );
+  useEffect(() => {
+    if (!session && declaredQuery.length > 0) {
+      wsSetQuery(channelUrl, declaredQuery.map((q) => ({ key: q.name, value: '' })));
+    }
+  }, [channelUrl, session, declaredQuery, wsSetQuery]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: 1e9 });
@@ -180,45 +197,60 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
                 None. Token from Authorize is appended automatically when the connection requires auth.
               </div>
             ) : (
-              query.map((row, i) => (
-                <div className="wss-hs-row" key={i}>
-                  <input
-                    className="input"
-                    placeholder="key"
-                    value={row.key}
-                    onChange={(e) =>
-                      wsSetQuery(
-                        channelUrl,
-                        query.map((r, j) => (j === i ? { ...r, key: e.target.value } : r)),
-                      )
-                    }
-                    spellCheck={false}
-                    disabled={editingDisabled}
-                  />
-                  <input
-                    className="input"
-                    placeholder="value"
-                    value={row.value}
-                    onChange={(e) =>
-                      wsSetQuery(
-                        channelUrl,
-                        query.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)),
-                      )
-                    }
-                    spellCheck={false}
-                    disabled={editingDisabled}
-                  />
-                  <button
-                    type="button"
-                    className="wss-hs-remove"
-                    onClick={() => wsSetQuery(channelUrl, query.filter((_, j) => j !== i))}
-                    disabled={editingDisabled}
-                    aria-label="Remove"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))
+              query.map((row, i) => {
+                const decl = declaredByName[row.key];
+                const isDeclared = !!decl;
+                return (
+                  <div className="wss-hs-row" key={i}>
+                    {isDeclared ? (
+                      <span className="wss-hs-label" title={row.key}>
+                        {row.key}
+                        {decl.required && <span className="req">*</span>}
+                      </span>
+                    ) : (
+                      <input
+                        className="input"
+                        placeholder="key"
+                        value={row.key}
+                        onChange={(e) =>
+                          wsSetQuery(
+                            channelUrl,
+                            query.map((r, j) => (j === i ? { ...r, key: e.target.value } : r)),
+                          )
+                        }
+                        spellCheck={false}
+                        disabled={editingDisabled}
+                      />
+                    )}
+                    <input
+                      className="input"
+                      placeholder={decl?.example ?? 'value'}
+                      value={row.value}
+                      onChange={(e) =>
+                        wsSetQuery(
+                          channelUrl,
+                          query.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)),
+                        )
+                      }
+                      spellCheck={false}
+                      disabled={editingDisabled}
+                    />
+                    {isDeclared ? (
+                      <span aria-hidden="true" className="wss-hs-remove-placeholder" />
+                    ) : (
+                      <button
+                        type="button"
+                        className="wss-hs-remove"
+                        onClick={() => wsSetQuery(channelUrl, query.filter((_, j) => j !== i))}
+                        disabled={editingDisabled}
+                        aria-label="Remove"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
 
