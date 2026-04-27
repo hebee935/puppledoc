@@ -25,7 +25,7 @@ export function WsEventPage({ doc, endpoint }: Props) {
           <span>›</span>
           <span>{endpoint.channel.url}</span>
         </div>
-        <div className="endpoint-hero-row">
+        <div className="endpoint-hero-row" data-deprecated={ev.deprecated || undefined}>
           <MethodPill method={endpoint.method} />
           <span className="endpoint-path-static">
             <span className="path-var">type:</span> "{ev.event}"
@@ -33,6 +33,7 @@ export function WsEventPage({ doc, endpoint }: Props) {
           <span className="event-dir" data-dir={ev.direction}>
             {ev.direction === 'send' ? 'server → client' : 'client → server'}
           </span>
+          {ev.deprecated && <span className="badge-deprecated">Deprecated</span>}
           <div className="hero-actions">
             {endpoint.auth && (
               <span className="ep-lock-icon" title="Authentication required">
@@ -68,7 +69,12 @@ export function WsEventPage({ doc, endpoint }: Props) {
       {replySchema && (
         <section className="card">
           <header className="card-head">
-            <h3 className="card-title">Reply</h3>
+            <h3 className="card-title">
+              Reply
+              {ev.replyEvent && (
+                <code className="card-title-event">type: "{ev.replyEvent}"</code>
+              )}
+            </h3>
             <span className="card-subtitle">← server</span>
           </header>
           <div className="card-body">

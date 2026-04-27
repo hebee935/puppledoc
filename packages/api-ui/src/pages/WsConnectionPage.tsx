@@ -1,7 +1,7 @@
 import { Lock, Play } from 'lucide-react';
 import type { ConnInputOptions, OpenApiDoc, WsConnectionEndpoint } from '../types';
 import { MethodPill } from '../components/MethodPill';
-import { useStore } from '../store';
+import { extractPathVars, useStore } from '../store';
 import { renderMarkdown, renderMarkdownInline } from '../markdown';
 
 interface Props {
@@ -16,6 +16,9 @@ export function WsConnectionPage({ endpoint }: Props) {
       <header className="endpoint-hero">
         <div className="endpoint-breadcrumb">
           <span>{endpoint.groupName}</span>
+          {endpoint.channel.tags?.slice(1).map((t) => (
+            <span key={t} className="ws-tag-chip">{t}</span>
+          ))}
         </div>
         <div className="endpoint-hero-row">
           <MethodPill method={endpoint.method} />
@@ -40,17 +43,34 @@ export function WsConnectionPage({ endpoint }: Props) {
         )}
       </header>
 
-      {endpoint.channel.conn && <HandshakeCard conn={endpoint.channel.conn} />}
+      {(() => {
+        const pathVars = extractPathVars(endpoint.channel.url);
+        const conn = endpoint.channel.conn;
+        if (!conn && pathVars.length === 0) return null;
+        return <HandshakeCard conn={conn ?? {}} pathVars={pathVars} />;
+      })()}
     </article>
   );
 }
 
-function HandshakeCard({ conn }: { conn: NonNullable<WsConnectionEndpoint['channel']['conn']> }) {
+function HandshakeCard({
+  conn,
+  pathVars,
+}: {
+  conn: NonNullable<WsConnectionEndpoint['channel']['conn']>;
+  pathVars: string[];
+}) {
   const sections: Array<{ label: string; meta: string; rows?: ConnInputOptions[] }> = [];
   if (conn.query?.length) sections.push({ label: 'Query', meta: '?key=value', rows: conn.query });
   if (conn.headers?.length) sections.push({ label: 'Headers', meta: 'HTTP upgrade', rows: conn.headers });
-  if (conn.auth?.length) sections.push({ label: 'Auth', meta: 'socket.io handshake.auth', rows: conn.auth });
-  if (sections.length === 0 && !conn.description) return null;
+  if (
+    sections.length === 0 &&
+    !conn.description &&
+    !conn.bearerAuth &&
+    !conn.subprotocols?.length &&
+    !conn.closeCodes?.length &&
+    pathVars.length === 0
+  ) return null;
 
   return (
     <section className="card">
@@ -64,6 +84,29 @@ function HandshakeCard({ conn }: { conn: NonNullable<WsConnectionEndpoint['chann
             className="handshake-desc"
             dangerouslySetInnerHTML={{ __html: renderMarkdown(conn.description) }}
           />
+        )}
+        {pathVars.length > 0 && (
+          <div className="handshake-section">
+            <div className="handshake-section-head">
+              <span className="handshake-section-label">Path</span>
+              <span className="handshake-section-meta">URL variables</span>
+            </div>
+            <div className="handshake-rows">
+              {pathVars.map((name) => (
+                <div className="handshake-row" key={name}>
+                  <code className="handshake-name">
+                    {name}
+                    <span className="handshake-req">required</span>
+                  </code>
+                  <div className="handshake-detail">
+                    <div className="handshake-desc-inline">
+                      Substituted into the channel URL at connect time.
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
         {sections.map((s) => (
           <div className="handshake-section" key={s.label}>
@@ -96,7 +139,71 @@ function HandshakeCard({ conn }: { conn: NonNullable<WsConnectionEndpoint['chann
             </div>
           </div>
         ))}
+        {conn.subprotocols?.length ? (
+          <div className="handshake-section">
+            <div className="handshake-section-head">
+              <span className="handshake-section-label">Subprotocols</span>
+              <span className="handshake-section-meta">Sec-WebSocket-Protocol</span>
+            </div>
+            <div className="handshake-subprotocols">
+              {conn.subprotocols.map((p) => (
+                <code key={p} className="handshake-subprotocol">{p}</code>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {conn.bearerAuth && (
+          <div className="handshake-section">
+            <div className="handshake-section-head">
+              <span className="handshake-section-label">Security</span>
+              <span className="handshake-section-meta">{conn.bearerAuth.name}</span>
+            </div>
+            <div className="handshake-bearer">
+              <span className="handshake-bearer-badge">Bearer</span>
+              <span className="handshake-bearer-text">
+                Pass the token via the <code>?token=</code> query, an
+                <code>Authorization: Bearer &lt;jwt&gt;</code> header (non-browser
+                clients), or socket.io's <code>handshake.auth.token</code>.
+              </span>
+            </div>
+          </div>
+        )}
+        {conn.closeCodes?.length ? (
+          <div className="handshake-section">
+            <div className="handshake-section-head">
+              <span className="handshake-section-label">Close codes</span>
+              <span className="handshake-section-meta">RFC 6455</span>
+            </div>
+            <div className="handshake-rows">
+              {conn.closeCodes.map((c) => (
+                <div className="handshake-row" key={c.code}>
+                  <code className="handshake-name">
+                    <span className={`close-code close-code-${closeCodeKind(c.code)}`}>
+                      {c.code}
+                    </span>
+                    {c.reason && <span className="close-reason">{c.reason}</span>}
+                  </code>
+                  <div className="handshake-detail">
+                    {c.description && (
+                      <div
+                        className="handshake-desc-inline"
+                        dangerouslySetInnerHTML={{ __html: renderMarkdownInline(c.description) }}
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
+}
+
+function closeCodeKind(code: number): 'normal' | 'protocol' | 'app' | 'unknown' {
+  if (code === 1000 || code === 1001) return 'normal';
+  if (code >= 1002 && code <= 1015) return 'protocol';
+  if (code >= 4000 && code <= 4999) return 'app';
+  return 'unknown';
 }

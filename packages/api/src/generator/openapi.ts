@@ -28,13 +28,16 @@ export async function enrichWithWebsocket(
       events.push({
         direction: e.direction,
         event: e.event,
+        operationId: e.operationId,
         summary: e.summary,
         description: e.description,
         auth: e.auth ?? true,
+        deprecated: e.deprecated || undefined,
         payload: (await registerPayload(e.payload, schemas)) as WsEventDoc['payload'],
         reply: e.reply
           ? ((await registerPayload(e.reply, schemas)) as WsEventDoc['reply'])
           : undefined,
+        replyEvent: e.replyEvent,
       });
     }
     const conn = await resolveConnHandshake(ch.conn);
@@ -45,6 +48,7 @@ export async function enrichWithWebsocket(
       url: ch.path ?? ch.namespace ?? `/${ch.name.toLowerCase()}`,
       namespace: ch.namespace,
       events,
+      tags: ch.tags && ch.tags.length > 1 ? ch.tags : undefined,
       conn,
     });
   }

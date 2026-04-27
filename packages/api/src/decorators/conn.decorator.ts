@@ -1,18 +1,20 @@
 import 'reflect-metadata';
 import {
   SPACE_API_WS_CONN,
-  SPACE_API_WS_CONN_AUTH,
+  SPACE_API_WS_CONN_BEARER,
+  SPACE_API_WS_CONN_CLOSE,
   SPACE_API_WS_CONN_HEADER,
   SPACE_API_WS_CONN_QUERY,
+  SPACE_API_WS_CONN_SUBPROTOCOLS,
 } from '../metadata/keys.js';
-import type { ConnInputDecl, ConnOptions } from '../metadata/types.js';
+import type { ConnCloseCodeOptions, ConnInputDecl, ConnOptions } from '../metadata/types.js';
 
 /**
  * Document the WebSocket handshake on the gateway's `handleConnection` method.
- * Mirrors `@nestjs/swagger`'s per-input pattern (`@ApiQuery`, `@ApiHeader`)
- * — apply once per documented input.
+ * Mirrors `@nestjs/swagger`'s per-input pattern (`@ApiQuery`, `@ApiHeader`,
+ * `@ApiBearerAuth`) — apply once per documented input.
  *
- * Each per-input decorator accepts three forms:
+ * Per-input decorators each accept three forms:
  *  - Inline: `{ name: 'token', required: true, description: '...' }`
  *  - DTO class shorthand: `(SomeDto)` — expanded via `@ApiProperty` metadata
  *  - DTO class explicit: `{ type: SomeDto }` — same as the shorthand
@@ -30,6 +32,7 @@ import type { ConnInputDecl, ConnOptions } from '../metadata/types.js';
  *   @Conn({ description: 'Authenticate with a workspace-scoped JWT.' })
  *   @ConnQuery(HandshakeQueryDto)
  *   @ConnHeader({ name: 'Authorization', description: 'Bearer <jwt>.' })
+ *   @ConnBearerAuth()
  *   async handleConnection(client: Socket) {}
  * }
  * ```
@@ -52,11 +55,68 @@ export const ConnHeader = (decl: ConnInputDecl): MethodDecorator =>
   pushTo(SPACE_API_WS_CONN_HEADER, decl);
 
 /**
- * Declare a field on socket.io's `client.handshake.auth` payload.
- * Ignored by clients using the raw WebSocket protocol.
+ * Mark the connection as bearer-token authenticated, mirroring
+ * `@ApiBearerAuth`. Tokens may travel via the `?token=` query, an
+ * `Authorization: Bearer <jwt>` header (non-browser clients), or socket.io's
+ * `handshake.auth.token` field — the docs UI surfaces all three.
+ *
+ * The optional `name` matches the `securitySchemes` key on the document; it
+ * defaults to `'bearer'` for parity with `@ApiBearerAuth()`.
  */
-export const ConnAuth = (decl: ConnInputDecl): MethodDecorator =>
-  pushTo(SPACE_API_WS_CONN_AUTH, decl);
+export const ConnBearerAuth = (name = 'bearer'): MethodDecorator =>
+  (target, propertyKey) => {
+    Reflect.defineMetadata(
+      SPACE_API_WS_CONN_BEARER,
+      { name },
+      target.constructor,
+      propertyKey,
+    );
+  };
+
+/**
+ * Declare the subprotocols (`Sec-WebSocket-Protocol`) the server is willing to
+ * negotiate, in preference order. The docs UI lists them and the tester
+ * pre-fills its subprotocols input from this declaration.
+ *
+ * ```ts
+ * @ConnSubprotocols('v1.chat', 'json.v2')
+ * handleConnection(client) {}
+ * ```
+ */
+export const ConnSubprotocols = (...protocols: string[]): MethodDecorator =>
+  (target, propertyKey) => {
+    Reflect.defineMetadata(
+      SPACE_API_WS_CONN_SUBPROTOCOLS,
+      protocols.filter(Boolean),
+      target.constructor,
+      propertyKey,
+    );
+  };
+
+/**
+ * Document a close code the server may send, mirroring `@ApiResponse`'s
+ * per-status pattern. Apply once per code (1000–1015 reserved, 4000–4999
+ * application-defined per RFC 6455).
+ *
+ * ```ts
+ * @ConnCloseCode({ code: 4001, reason: 'unauthorized', description: 'JWT failed validation.' })
+ * @ConnCloseCode({ code: 4003, reason: 'workspace_not_found' })
+ * handleConnection(client) {}
+ * ```
+ */
+export const ConnCloseCode = (opts: ConnCloseCodeOptions): MethodDecorator =>
+  (target, propertyKey) => {
+    const existing =
+      (Reflect.getOwnMetadata(SPACE_API_WS_CONN_CLOSE, target.constructor, propertyKey) as
+        | ConnCloseCodeOptions[]
+        | undefined) ?? [];
+    Reflect.defineMetadata(
+      SPACE_API_WS_CONN_CLOSE,
+      [opts, ...existing],
+      target.constructor,
+      propertyKey,
+    );
+  };
 
 function pushTo(key: symbol, decl: ConnInputDecl): MethodDecorator {
   return (target, propertyKey) => {

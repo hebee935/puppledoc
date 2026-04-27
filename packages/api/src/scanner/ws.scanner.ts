@@ -5,12 +5,15 @@ import {
   NEST_GATEWAY_OPTIONS_KEYS,
   SPACE_API_WS_CHANNEL,
   SPACE_API_WS_CONN,
-  SPACE_API_WS_CONN_AUTH,
+  SPACE_API_WS_CONN_BEARER,
+  SPACE_API_WS_CONN_CLOSE,
   SPACE_API_WS_CONN_HEADER,
   SPACE_API_WS_CONN_QUERY,
+  SPACE_API_WS_CONN_SUBPROTOCOLS,
   SPACE_API_WS_EVENTS,
 } from '../metadata/keys.js';
 import type {
+  ConnCloseCodeOptions,
   ConnHandshakeRaw,
   ConnInputDecl,
   ConnOptions,
@@ -48,11 +51,16 @@ export function scanWsChannels(app: INestApplication): WsChannelMeta[] {
 
     if (gatewayMeta) {
       const tag = Reflect.getMetadata(SPACE_API_WS_CHANNEL, metatype) as
-        | { name?: string }
+        | { name?: string; tags?: string[] }
         | undefined;
       const conn = readConnHandshake(metatype);
       gateways.set(metatype, {
-        meta: { name: tag?.name ?? metatype.name, ...gatewayMeta, conn },
+        meta: {
+          name: tag?.name ?? metatype.name,
+          tags: tag?.tags,
+          ...gatewayMeta,
+          conn,
+        },
         events: events.slice(),
       });
     } else if (events.length > 0) {
@@ -92,6 +100,7 @@ export function scanWsChannels(app: INestApplication): WsChannelMeta[] {
       path: meta.path,
       namespace: meta.namespace,
       events,
+      tags: meta.tags,
       conn: meta.conn,
     });
   }
@@ -105,7 +114,8 @@ interface GatewayMeta {
   name: string;
   path?: string;
   namespace?: string;
-  conn?: ConnHandshake;
+  tags?: string[];
+  conn?: ConnHandshakeRaw;
 }
 
 function readConnHandshake(ctor: Type<unknown>): ConnHandshakeRaw | undefined {
@@ -116,13 +126,23 @@ function readConnHandshake(ctor: Type<unknown>): ConnHandshakeRaw | undefined {
     Reflect.getMetadata(SPACE_API_WS_CONN, ctor)) as ConnOptions | undefined;
   const query = readArray(SPACE_API_WS_CONN_QUERY, ctor);
   const headers = readArray(SPACE_API_WS_CONN_HEADER, ctor);
-  const auth = readArray(SPACE_API_WS_CONN_AUTH, ctor);
+  const bearer = (Reflect.getMetadata(SPACE_API_WS_CONN_BEARER, ctor, 'handleConnection') ??
+    Reflect.getMetadata(SPACE_API_WS_CONN_BEARER, ctor)) as { name: string } | undefined;
+  const subprotocols = (Reflect.getMetadata(SPACE_API_WS_CONN_SUBPROTOCOLS, ctor, 'handleConnection') ??
+    Reflect.getMetadata(SPACE_API_WS_CONN_SUBPROTOCOLS, ctor)) as string[] | undefined;
+  const closeCodes = (Reflect.getMetadata(SPACE_API_WS_CONN_CLOSE, ctor, 'handleConnection') ??
+    Reflect.getMetadata(SPACE_API_WS_CONN_CLOSE, ctor)) as ConnCloseCodeOptions[] | undefined;
   const result: ConnHandshakeRaw = {};
   if (top?.description) result.description = top.description;
   if (query?.length) result.query = query;
   if (headers?.length) result.headers = headers;
-  if (auth?.length) result.auth = auth;
-  return result.description || result.query || result.headers || result.auth ? result : undefined;
+  if (bearer) result.bearerAuth = bearer;
+  if (subprotocols?.length) result.subprotocols = subprotocols;
+  if (closeCodes?.length) result.closeCodes = [...closeCodes].sort((a, b) => a.code - b.code);
+  return result.description || result.query || result.headers || result.bearerAuth ||
+    result.subprotocols || result.closeCodes
+    ? result
+    : undefined;
 }
 
 function readArray(key: symbol, ctor: Type<unknown>): ConnInputDecl[] | undefined {

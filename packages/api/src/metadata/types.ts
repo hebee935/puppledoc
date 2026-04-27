@@ -5,13 +5,24 @@ export type WsEventDirection = 'recv' | 'send';
 export interface ReceiveOptions {
   /** Frame `type` value (e.g. 'chat.message'). */
   event: string;
+  /**
+   * Stable identifier mirroring OpenAPI's `operationId`. Defaults to `event`;
+   * override when codegen requires a name distinct from the wire `type`.
+   */
+  operationId?: string;
   /** DTO class used to validate + derive the payload JSON schema. */
   payload: Type<unknown>;
   summary?: string;
   description?: string;
-  /** If the server replies synchronously, describe the reply frame shape. */
-  reply?: Type<unknown>;
+  /**
+   * If the server replies synchronously, describe the reply frame shape.
+   * Pass either a DTO class (legacy shorthand) or `{ event, payload }` to
+   * also document the reply's outgoing event name.
+   */
+  reply?: Type<unknown> | { event: string; payload: Type<unknown> };
   auth?: boolean;
+  /** Mark this event as deprecated; the docs render a strike-through + badge. */
+  deprecated?: boolean;
   /**
    * When declared outside the gateway class (e.g. on a service or controller),
    * point at the gateway class so the event is documented under that channel's URL.
@@ -22,10 +33,13 @@ export interface ReceiveOptions {
 
 export interface SendOptions {
   event: string;
+  /** See {@link ReceiveOptions.operationId}. */
+  operationId?: string;
   payload: Type<unknown>;
   summary?: string;
   description?: string;
   auth?: boolean;
+  deprecated?: boolean;
   /** See {@link ReceiveOptions.channel}. */
   channel?: Type<unknown>;
 }
@@ -33,11 +47,15 @@ export interface SendOptions {
 export interface WsEventMeta {
   direction: WsEventDirection;
   event: string;
+  operationId?: string;
   payload: Type<unknown>;
   summary?: string;
   description?: string;
   reply?: Type<unknown>;
+  /** Outgoing event name for the reply, when the user supplied `reply: { event, payload }`. */
+  replyEvent?: string;
   auth?: boolean;
+  deprecated?: boolean;
   /** Gateway class this event belongs to (explicit when the decorator is on a service/controller). */
   channel?: Type<unknown>;
   /** Method name the decorator was attached to (undefined for class-level @Send). */
@@ -49,6 +67,8 @@ export interface WsChannelMeta {
   path?: string;
   namespace?: string;
   events: WsEventMeta[];
+  /** Additional tag names beyond the primary `name`, in source order. */
+  tags?: string[];
   /** Raw handshake decls; resolved into `ConnHandshake` by the generator. */
   conn?: ConnHandshakeRaw;
 }
@@ -58,6 +78,7 @@ export interface WsChannelDoc {
   url: string;
   namespace?: string;
   events: WsEventDoc[];
+  tags?: string[];
   conn?: ConnHandshake;
 }
 
@@ -71,6 +92,13 @@ export interface ConnInputOptions {
   required?: boolean;
   description?: string;
   example?: string;
+  /**
+   * Mark this input as the destination for the Authorize-panel bearer token.
+   * The docs tester pre-fills its value with the current `token` when the
+   * row's value is empty. Inputs whose name is exactly `'token'` are treated
+   * as bearer by convention even without this flag.
+   */
+  bearer?: boolean;
 }
 
 /**
@@ -88,12 +116,23 @@ export interface ConnOptions {
   description?: string;
 }
 
+export interface ConnCloseCodeOptions {
+  /** RFC 6455 close code (1000–1015 reserved, 4000–4999 application). */
+  code: number;
+  /** Short reason phrase the server sends in the close frame. */
+  reason?: string;
+  /** Human description of when this code is used. */
+  description?: string;
+}
+
 /** Raw (pre-expansion) shape stored on the gateway by the decorators. */
 export interface ConnHandshakeRaw {
   description?: string;
   query?: ConnInputDecl[];
   headers?: ConnInputDecl[];
-  auth?: ConnInputDecl[];
+  bearerAuth?: { name: string };
+  subprotocols?: string[];
+  closeCodes?: ConnCloseCodeOptions[];
 }
 
 /** Resolved handshake doc consumed by the generator + UI. */
@@ -101,17 +140,25 @@ export interface ConnHandshake {
   description?: string;
   query?: ConnInputOptions[];
   headers?: ConnInputOptions[];
-  auth?: ConnInputOptions[];
+  bearerAuth?: { name: string };
+  /** Sec-WebSocket-Protocol values offered by the server, in preference order. */
+  subprotocols?: string[];
+  /** Close codes the server may emit, sorted by code ascending. */
+  closeCodes?: ConnCloseCodeOptions[];
 }
 
 export interface WsEventDoc {
   direction: WsEventDirection;
   event: string;
+  operationId?: string;
   summary?: string;
   description?: string;
   auth: boolean;
+  deprecated?: boolean;
   payload: { $ref: string } | SchemaLike;
   reply?: { $ref: string } | SchemaLike;
+  /** Event name the server emits for the reply, when declared. */
+  replyEvent?: string;
 }
 
 /** Inline JSON-Schema-ish shape. Open enough to accept the Swagger SchemaObject. */

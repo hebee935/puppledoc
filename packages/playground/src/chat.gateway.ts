@@ -8,9 +8,11 @@ import {
 import type { Server } from "ws";
 import {
   Conn,
-  ConnAuth,
+  ConnBearerAuth,
+  ConnCloseCode,
   ConnHeader,
   ConnQuery,
+  ConnSubprotocols,
   Receive,
   Send,
   WsTags,
@@ -56,12 +58,12 @@ export class ChatGateway {
     description:
       "Alternative to `?token=` — `Bearer <jwt>`. Browsers can't set this, but `wscat`/`curl`/server-side clients can.",
   })
-  @ConnAuth({
-    name: "token",
-    required: true,
-    description:
-      "When using socket.io clients, pass the JWT here instead of the query string.",
-  })
+  @ConnBearerAuth()
+  @ConnSubprotocols('chat.v1', 'chat.v2')
+  @ConnCloseCode({ code: 1000, reason: 'normal_closure', description: 'The client or server cleanly closed the socket.' })
+  @ConnCloseCode({ code: 4001, reason: 'unauthorized', description: 'JWT was missing, malformed, or failed validation.' })
+  @ConnCloseCode({ code: 4003, reason: 'workspace_not_found', description: 'The `workspace` query did not match any workspace.' })
+  @ConnCloseCode({ code: 4029, reason: 'rate_limited', description: 'Too many connection attempts from this client. Backoff and retry.' })
   handleConnection(_client: unknown): void {
     // Auth + workspace pinning would go here in a real app.
   }
@@ -69,7 +71,7 @@ export class ChatGateway {
   @Receive({
     event: "subscribe",
     payload: SubscribeFrameDto,
-    reply: SubscribedFrameDto,
+    reply: { event: "subscribed", payload: SubscribedFrameDto },
     summary: "Subscribe to a channel",
     description:
       "Start receiving `message.created`, `typing` and `presence.update` for the given channel.",
@@ -87,7 +89,7 @@ export class ChatGateway {
   @Receive({
     event: "chat.message",
     payload: ChatMessageFrameDto,
-    reply: ChatAckFrameDto,
+    reply: { event: "chat.message.ack", payload: ChatAckFrameDto },
     summary: "Post a message to a channel",
     description:
       "Server replies with an ack carrying the assigned `messageId`.",

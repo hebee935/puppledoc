@@ -73,6 +73,7 @@ export function normalize(doc: OpenApiDoc): EndpointGroup[] {
         title: ev.summary ?? ev.event,
         description: ev.description,
         auth: ev.auth,
+        deprecated: ev.deprecated,
         groupName: channel.name,
         groupDescription: group.description,
         channel,

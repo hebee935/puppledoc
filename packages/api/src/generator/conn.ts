@@ -22,7 +22,9 @@ export async function resolveConnHandshake(
   if (raw.description) out.description = raw.description;
   if (raw.query?.length) out.query = await resolveDecls(raw.query);
   if (raw.headers?.length) out.headers = await resolveDecls(raw.headers);
-  if (raw.auth?.length) out.auth = await resolveDecls(raw.auth);
+  if (raw.bearerAuth) out.bearerAuth = raw.bearerAuth;
+  if (raw.subprotocols?.length) out.subprotocols = raw.subprotocols;
+  if (raw.closeCodes?.length) out.closeCodes = raw.closeCodes;
   return out;
 }
 

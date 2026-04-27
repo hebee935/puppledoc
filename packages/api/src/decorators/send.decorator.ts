@@ -21,10 +21,12 @@ export const Send = (opts: SendOptions): ClassDecorator & MethodDecorator =>
     existing.push({
       direction: 'send',
       event: opts.event,
+      operationId: opts.operationId,
       payload: opts.payload,
       summary: opts.summary,
       description: opts.description,
       auth: opts.auth,
+      deprecated: opts.deprecated,
       channel: opts.channel,
       handler: propertyKey === undefined ? undefined : String(propertyKey),
     });

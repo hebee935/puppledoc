@@ -2,16 +2,23 @@ import 'reflect-metadata';
 import { SPACE_API_WS_CHANNEL } from '../metadata/keys.js';
 
 /**
- * Set the display name for a WebSocket gateway's group in the docs sidebar.
- * Without this decorator the gateway class name is used verbatim (e.g. `ChatGateway`).
+ * Tag a WebSocket gateway. Mirrors `@ApiTags` — pass one or more strings;
+ * the first is used as the channel's display name in the sidebar, the rest
+ * are recorded as additional tags on the channel for downstream tooling.
  *
  * ```ts
- * @WsTags('Realtime chat')
+ * @WsTags('Realtime', 'Messaging')
  * @WebSocketGateway({ namespace: '/chat' })
  * export class ChatGateway {}
  * ```
  */
-export const WsTags = (name: string): ClassDecorator =>
+export const WsTags = (...names: string[]): ClassDecorator =>
   (target) => {
-    Reflect.defineMetadata(SPACE_API_WS_CHANNEL, { name }, target);
+    const cleaned = names.filter(Boolean);
+    if (cleaned.length === 0) return;
+    Reflect.defineMetadata(
+      SPACE_API_WS_CHANNEL,
+      { name: cleaned[0], tags: cleaned },
+      target,
+    );
   };

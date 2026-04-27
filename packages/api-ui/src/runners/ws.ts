@@ -18,8 +18,7 @@ export interface WsClient {
 
 export interface WsOptions {
   url: string;
-  token?: string;
-  /** Extra handshake query params. Override `token` when a key collides. */
+  /** Handshake query params written verbatim into the URL search string. */
   query?: Record<string, string>;
   protocols?: string | string[];
   onState: (state: WsState) => void;
@@ -27,15 +26,14 @@ export interface WsOptions {
 }
 
 /**
- * Open a WebSocket with token auto-injected (as `?token=` query param — the common
- * convention for browser WS, since headers aren't available on upgrade). Callers
- * own the lifecycle; `close()` is idempotent.
+ * Open a WebSocket and stream frames through the supplied callbacks. The
+ * caller owns auth-token substitution and final query composition; this
+ * runner just opens the URL it's given. `close()` is idempotent.
  */
 export function openWs(opts: WsOptions): WsClient {
   const u = new URL(opts.url, window.location.href);
   if (u.protocol === 'http:') u.protocol = 'ws:';
   else if (u.protocol === 'https:') u.protocol = 'wss:';
-  if (opts.token) u.searchParams.set('token', opts.token);
   if (opts.query) {
     for (const [k, v] of Object.entries(opts.query)) {
       if (k && v !== '') u.searchParams.set(k, v);

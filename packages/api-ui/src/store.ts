@@ -13,9 +13,36 @@ export interface WsSession {
   frames: WsFrame[];
   query: WsQueryRow[];
   subprotocols: string;
+  pathParams: Record<string, string>;
 }
 
-const EMPTY_SESSION: WsSession = { state: 'idle', frames: [], query: [], subprotocols: '' };
+const EMPTY_SESSION: WsSession = {
+  state: 'idle',
+  frames: [],
+  query: [],
+  subprotocols: '',
+  pathParams: {},
+};
+
+/** Match `:name` (express style) and `{name}` (OpenAPI style). */
+const PATH_VAR_RE = /:([A-Za-z_][\w-]*)|\{([A-Za-z_][\w-]*)\}/g;
+
+export function extractPathVars(template: string): string[] {
+  const out: string[] = [];
+  for (const m of template.matchAll(PATH_VAR_RE)) {
+    const name = m[1] ?? m[2];
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+function applyPathVars(template: string, values: Record<string, string>): string {
+  return template.replace(PATH_VAR_RE, (whole, a: string | undefined, b: string | undefined) => {
+    const name = a ?? b ?? '';
+    const v = values[name];
+    return v !== undefined && v !== '' ? encodeURIComponent(v) : whole;
+  });
+}
 
 // Non-serializable client refs live alongside the store, keyed by channel URL.
 // Keeping them out of the zustand state avoids re-render churn and lets the
@@ -58,11 +85,19 @@ interface UiState {
   /** Re-sync activeId from window.location.hash (called by a hashchange listener). */
   syncFromHash: () => void;
 
-  wsConnect: (channelUrl: string, opts?: { token?: string }) => void;
+  wsConnect: (
+    channelUrl: string,
+    opts?: { token?: string; bearerKeys?: string[] },
+  ) => void;
   wsDisconnect: (channelUrl: string) => void;
-  wsSend: (channelUrl: string, payload: unknown, opts?: { token?: string }) => void;
+  wsSend: (
+    channelUrl: string,
+    payload: unknown,
+    opts?: { token?: string; bearerKeys?: string[] },
+  ) => void;
   wsSetQuery: (channelUrl: string, rows: WsQueryRow[]) => void;
   wsSetSubprotocols: (channelUrl: string, value: string) => void;
+  wsSetPathParam: (channelUrl: string, name: string, value: string) => void;
   wsClearFrames: (channelUrl: string) => void;
 }
 
@@ -229,14 +264,25 @@ export const useStore = create<UiState>((set, get) => ({
                      get().wsSessions[channelUrl]?.state === 'connected')) return;
 
     const session = get().wsSessions[channelUrl] ?? EMPTY_SESSION;
-    const fullUrl = channelUrl.startsWith('ws://') || channelUrl.startsWith('wss://')
-      ? channelUrl
-      : `${get().server.replace(/^http/, 'ws')}${channelUrl}`;
+    const resolvedPath = applyPathVars(channelUrl, session.pathParams);
+    const fullUrl = resolvedPath.startsWith('ws://') || resolvedPath.startsWith('wss://')
+      ? resolvedPath
+      : `${get().server.replace(/^http/, 'ws')}${resolvedPath}`;
+
+    // Bearer substitution: rows whose key is declared `bearer: true` or whose
+    // key matches the `'token'` convention get the Authorize panel's token
+    // when their value is empty. Explicit row values always win.
+    const bearerKeys = new Set<string>(opts?.bearerKeys ?? []);
+    for (const r of session.query) {
+      if (r.key.toLowerCase() === 'token') bearerKeys.add(r.key);
+    }
 
     const queryObj: Record<string, string> = {};
     for (const { key, value } of session.query) {
       const k = key.trim();
-      if (k) queryObj[k] = value;
+      if (!k) continue;
+      if (value !== '') queryObj[k] = value;
+      else if (opts?.token && bearerKeys.has(key)) queryObj[k] = opts.token;
     }
     const protocols = session.subprotocols
       .split(',')
@@ -253,7 +299,6 @@ export const useStore = create<UiState>((set, get) => ({
 
     const client = openWs({
       url: fullUrl,
-      token: opts?.token,
       query: queryObj,
       protocols: protocols.length > 0 ? protocols : undefined,
       onState: (state) => {
@@ -316,6 +361,17 @@ export const useStore = create<UiState>((set, get) => ({
         [channelUrl]: { ...(s.wsSessions[channelUrl] ?? EMPTY_SESSION), subprotocols: value },
       },
     })),
+
+  wsSetPathParam: (channelUrl, name, value) =>
+    set((s) => {
+      const cur = s.wsSessions[channelUrl] ?? EMPTY_SESSION;
+      return {
+        wsSessions: {
+          ...s.wsSessions,
+          [channelUrl]: { ...cur, pathParams: { ...cur.pathParams, [name]: value } },
+        },
+      };
+    }),
 
   wsClearFrames: (channelUrl) =>
     set((s) => ({

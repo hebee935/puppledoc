@@ -4,7 +4,7 @@ import type { OpenApiDoc, WsConnectionEndpoint, WsEventEndpoint } from '../types
 import { MethodPill } from '../components/MethodPill';
 import { buildExampleFromSchema } from '../samples';
 import { resolveRef } from '../spec';
-import { useStore } from '../store';
+import { extractPathVars, useStore } from '../store';
 
 interface Props {
   doc: OpenApiDoc;
@@ -29,6 +29,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
   const wsSend = useStore((s) => s.wsSend);
   const wsSetQuery = useStore((s) => s.wsSetQuery);
   const wsSetSubprotocols = useStore((s) => s.wsSetSubprotocols);
+  const wsSetPathParam = useStore((s) => s.wsSetPathParam);
   const wsClearFrames = useStore((s) => s.wsClearFrames);
 
   const isEvent = endpoint.kind === 'ws-event';
@@ -61,11 +62,30 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
     () => Object.fromEntries(declaredQuery.map((q) => [q.name, q])),
     [declaredQuery],
   );
+  // Names whose value should be auto-filled with the Authorize bearer token
+  // when left empty: declared `bearer: true` rows + the literal `token`
+  // convention.
+  const bearerKeys = useMemo(
+    () => declaredQuery.filter((q) => q.bearer || q.name.toLowerCase() === 'token').map((q) => q.name),
+    [declaredQuery],
+  );
+  const isBearerRow = (key: string) =>
+    bearerKeys.includes(key) || key.toLowerCase() === 'token';
+  const declaredSubprotocols = useMemo(
+    () => channel.conn?.subprotocols ?? [],
+    [channel.conn?.subprotocols],
+  );
+  const pathVars = useMemo(() => extractPathVars(channelUrl), [channelUrl]);
+  const pathParams = session?.pathParams ?? {};
   useEffect(() => {
-    if (!session && declaredQuery.length > 0) {
+    if (session) return;
+    if (declaredQuery.length > 0) {
       wsSetQuery(channelUrl, declaredQuery.map((q) => ({ key: q.name, value: '' })));
     }
-  }, [channelUrl, session, declaredQuery, wsSetQuery]);
+    if (declaredSubprotocols.length > 0) {
+      wsSetSubprotocols(channelUrl, declaredSubprotocols.join(', '));
+    }
+  }, [channelUrl, session, declaredQuery, declaredSubprotocols, wsSetQuery, wsSetSubprotocols]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: 1e9 });
@@ -73,7 +93,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
 
   const connect = () => {
     if (state === 'connecting' || state === 'connected') return;
-    wsConnect(channelUrl, { token: endpoint.auth ? token : undefined });
+    wsConnect(channelUrl, { token: endpoint.auth ? token : undefined, bearerKeys });
   };
 
   const disconnect = () => wsDisconnect(channelUrl);
@@ -104,7 +124,7 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
       });
       return;
     }
-    wsSend(channelUrl, parsed, { token: endpoint.auth ? token : undefined });
+    wsSend(channelUrl, parsed, { token: endpoint.auth ? token : undefined, bearerKeys });
   };
 
   // Filter only when watching a server-pushed event (SEND pill): the user
@@ -180,6 +200,31 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
       {isConnPage && (
         <details className="wss-handshake" open>
           <summary>Handshake</summary>
+          {pathVars.length > 0 && (
+            <div className="wss-hs-section">
+              <div className="wss-hs-head">
+                <span>Path params</span>
+                <span className="wss-hs-meta">URL substitution</span>
+              </div>
+              {pathVars.map((name) => (
+                <div className="wss-hs-row" key={name}>
+                  <span className="wss-hs-label" title={name}>
+                    {name}
+                    <span className="req">*</span>
+                  </span>
+                  <input
+                    className="input"
+                    placeholder={`:${name}`}
+                    value={pathParams[name] ?? ''}
+                    onChange={(e) => wsSetPathParam(channelUrl, name, e.target.value)}
+                    spellCheck={false}
+                    disabled={editingDisabled}
+                  />
+                  <span aria-hidden="true" className="wss-hs-remove-placeholder" />
+                </div>
+              ))}
+            </div>
+          )}
           <div className="wss-hs-section">
             <div className="wss-hs-head">
               <span>Query params</span>
@@ -224,7 +269,11 @@ export function WsTester({ doc, endpoint, leftEdge }: Props) {
                     )}
                     <input
                       className="input"
-                      placeholder={decl?.example ?? 'value'}
+                      placeholder={
+                        isBearerRow(row.key) && token
+                          ? '(from Authorize)'
+                          : decl?.example ?? 'value'
+                      }
                       value={row.value}
                       onChange={(e) =>
                         wsSetQuery(

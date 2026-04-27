@@ -76,6 +76,7 @@ export interface WsChannel {
   url: string;
   namespace?: string;
   events: WsEvent[];
+  tags?: string[];
   conn?: ConnHandshake;
 }
 
@@ -84,23 +85,35 @@ export interface ConnInputOptions {
   required?: boolean;
   description?: string;
   example?: string;
+  bearer?: boolean;
+}
+
+export interface ConnCloseCodeOptions {
+  code: number;
+  reason?: string;
+  description?: string;
 }
 
 export interface ConnHandshake {
   description?: string;
   query?: ConnInputOptions[];
   headers?: ConnInputOptions[];
-  auth?: ConnInputOptions[];
+  bearerAuth?: { name: string };
+  subprotocols?: string[];
+  closeCodes?: ConnCloseCodeOptions[];
 }
 
 export interface WsEvent {
   direction: 'send' | 'recv';
   event: string;
+  operationId?: string;
   summary?: string;
   description?: string;
   auth: boolean;
+  deprecated?: boolean;
   payload: SchemaObj;
   reply?: SchemaObj;
+  replyEvent?: string;
 }
 
 /**
