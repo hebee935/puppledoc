@@ -7,5 +7,6 @@ export function TestPanel() {
   const active = getActive();
   if (!doc || !active) return <section className="test" />;
   if (active.kind === 'rest') return <RestTester doc={doc} endpoint={active} />;
+  if (active.kind === 'model') return <section className="test" />;
   return <WsTester doc={doc} endpoint={active} />;
 }

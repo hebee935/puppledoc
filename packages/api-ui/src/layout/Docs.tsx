@@ -7,6 +7,7 @@ import { RestEndpointPage } from '../pages/RestEndpointPage';
 import { WsConnectionPage } from '../pages/WsConnectionPage';
 import { WsEventPage } from '../pages/WsEventPage';
 import { TagSummaryPage } from '../pages/TagSummaryPage';
+import { ModelPage } from '../pages/ModelPage';
 
 export function Docs() {
   const { doc, groups, activeId, selectEndpoint } = useStore();
@@ -33,6 +34,7 @@ export function Docs() {
         {active?.kind === 'rest' && <RestEndpointPage doc={doc} endpoint={active} />}
         {active?.kind === 'ws-connection' && <WsConnectionPage doc={doc} endpoint={active} />}
         {active?.kind === 'ws-event' && <WsEventPage doc={doc} endpoint={active} />}
+        {active?.kind === 'model' && <ModelPage doc={doc} endpoint={active} />}
 
         {active && (
           <nav className="endpoint-nav">

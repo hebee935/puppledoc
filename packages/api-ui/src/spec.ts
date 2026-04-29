@@ -2,6 +2,7 @@ import type {
   Endpoint,
   EndpointGroup,
   HttpMethod,
+  ModelEndpoint,
   OpenApiDoc,
   Operation,
   RestEndpoint,
@@ -78,6 +79,32 @@ export function normalize(doc: OpenApiDoc): EndpointGroup[] {
         groupDescription: group.description,
         channel,
         event: ev,
+      };
+      group.endpoints.push(ep);
+    }
+  }
+
+  // Models — components.schemas surfaced as a single group at the bottom of the
+  // sidebar so users can browse DTOs the same way Scalar / Stoplight do.
+  const schemas = doc.components?.schemas ?? {};
+  const schemaNames = Object.keys(schemas);
+  if (schemaNames.length > 0) {
+    const groupId = 'models';
+    const group = upsertGroup(groupId, 'Models', 'Reusable schemas referenced by operations.');
+    for (const name of schemaNames) {
+      const schema = schemas[name]!;
+      const ep: ModelEndpoint = {
+        id: `model:${name}`,
+        kind: 'model',
+        method: 'TYPE',
+        path: name,
+        title: name,
+        description: schema.description,
+        auth: false,
+        groupName: 'Models',
+        groupDescription: group.description,
+        name,
+        schema,
       };
       group.endpoints.push(ep);
     }

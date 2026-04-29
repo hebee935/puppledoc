@@ -121,7 +121,7 @@ export interface WsEvent {
  * Unified endpoint model used by Sidebar / Docs / TestPanel. A single REST operation
  * or one WS event (connection or frame) maps to one of these.
  */
-export type EndpointKind = 'rest' | 'ws-connection' | 'ws-event';
+export type EndpointKind = 'rest' | 'ws-connection' | 'ws-event' | 'model';
 
 export interface BaseEndpoint {
   id: string;
@@ -152,7 +152,13 @@ export interface WsEventEndpoint extends BaseEndpoint {
   event: WsEvent;
 }
 
-export type Endpoint = RestEndpoint | WsConnectionEndpoint | WsEventEndpoint;
+export interface ModelEndpoint extends BaseEndpoint {
+  kind: 'model';
+  name: string;
+  schema: SchemaObj;
+}
+
+export type Endpoint = RestEndpoint | WsConnectionEndpoint | WsEventEndpoint | ModelEndpoint;
 
 export interface EndpointGroup {
   id: string;

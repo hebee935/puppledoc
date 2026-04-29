@@ -80,9 +80,13 @@ export function CommandPalette() {
                 closePalette();
               }}
             >
-              <MethodPill method={ep.method} />
+              {ep.kind === 'model' ? (
+                <span className="model-type-chip">type</span>
+              ) : (
+                <MethodPill method={ep.method} />
+              )}
               <span className="palette-item-label">{ep.title}</span>
-              <span className="palette-item-group">{ep.path}</span>
+              <span className="palette-item-group">{ep.kind === 'model' ? 'Models' : ep.path}</span>
             </button>
           ))}
         </div>

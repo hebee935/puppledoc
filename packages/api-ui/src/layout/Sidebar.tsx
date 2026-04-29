@@ -6,10 +6,13 @@ import { useStore } from '../store';
 export function Sidebar() {
   const { groups, activeId, selectEndpoint, selectGroup, goOverview, openAuth, token } = useStore();
   const wsSessions = useStore((s) => s.wsSessions);
+  // Models is a long, secondary list — start collapsed so it doesn't drown the
+  // operation groups above it. Other groups default open.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((g) => [g.id, true])),
+    Object.fromEntries(groups.map((g) => [g.id, g.id !== 'models'])),
   );
-  const toggle = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !(s[id] ?? true) }));
+  const isOpen = (id: string) => openGroups[id] ?? id !== 'models';
+  const toggle = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !isOpen(id) }));
   const ensureOpen = (id: string) => setOpenGroups((s) => ({ ...s, [id]: true }));
 
   return (
@@ -31,7 +34,7 @@ export function Sidebar() {
         </button>
 
         {groups.map((g) => (
-          <div key={g.id} className="nav-group" data-open={openGroups[g.id] ?? true}>
+          <div key={g.id} className="nav-group" data-open={isOpen(g.id)}>
             <div
               className="nav-group-title"
               data-active={activeId === g.id}
@@ -56,7 +59,7 @@ export function Sidebar() {
                   e.stopPropagation();
                   toggle(g.id);
                 }}
-                aria-label={openGroups[g.id] ?? true ? 'Collapse' : 'Expand'}
+                aria-label={isOpen(g.id) ? 'Collapse' : 'Expand'}
               >
                 <ChevronDown size={12} className="chev" />
               </button>
@@ -67,15 +70,17 @@ export function Sidebar() {
               {g.endpoints.map((ep) => {
                 const liveState =
                   ep.kind === 'ws-connection' ? wsSessions[ep.channel.url]?.state : undefined;
+                const isModel = ep.kind === 'model';
                 return (
                   <button
                     key={ep.id}
                     className="nav-item"
                     data-active={activeId === ep.id}
+                    data-model={isModel || undefined}
                     onClick={() => selectEndpoint(ep.id)}
                     title={ep.title}
                   >
-                    <MethodPill method={ep.method} />
+                    {!isModel && <MethodPill method={ep.method} />}
                     <span className="nav-item-label" data-deprecated={ep.deprecated || undefined}>
                       {ep.title}
                     </span>

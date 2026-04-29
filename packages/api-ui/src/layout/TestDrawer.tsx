@@ -28,8 +28,10 @@ export function TestDrawer() {
         </div>
         <div className="drawer-body">
           {doc && active?.kind === 'rest' && <RestTester doc={doc} endpoint={active} />}
-          {doc && active && active.kind !== 'rest' && <WsTester doc={doc} endpoint={active} />}
-          {!active && (
+          {doc && (active?.kind === 'ws-connection' || active?.kind === 'ws-event') && (
+            <WsTester doc={doc} endpoint={active} />
+          )}
+          {(!active || active.kind === 'model') && (
             <div className="resp-empty">Select an endpoint to test</div>
           )}
         </div>

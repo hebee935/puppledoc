@@ -37,10 +37,15 @@ export function TagSummaryPage({ group }: { group: EndpointGroup }) {
                 key={ep.id}
                 type="button"
                 className="tag-summary-row"
+                data-model={ep.kind === 'model' || undefined}
                 onClick={() => selectEndpoint(ep.id)}
                 title={ep.title}
               >
-                <MethodPill method={ep.method} />
+                {ep.kind === 'model' ? (
+                  <span className="model-type-chip">type</span>
+                ) : (
+                  <MethodPill method={ep.method} />
+                )}
                 <span className="tag-summary-path">
                   {ep.kind === 'rest' ? ep.path : ep.kind === 'ws-event' ? `"${ep.path}"` : ep.path}
                 </span>
