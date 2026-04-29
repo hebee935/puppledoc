@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, Home, Key, Lock } from 'lucide-react';
 import { MethodPill } from '../components/MethodPill';
 import { useStore } from '../store';
@@ -6,14 +6,21 @@ import { useStore } from '../store';
 export function Sidebar() {
   const { groups, activeId, selectEndpoint, selectGroup, goOverview, openAuth, token } = useStore();
   const wsSessions = useStore((s) => s.wsSessions);
-  // Models is a long, secondary list — start collapsed so it doesn't drown the
-  // operation groups above it. Other groups default open.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(groups.map((g) => [g.id, g.id !== 'models'])),
-  );
-  const isOpen = (id: string) => openGroups[id] ?? id !== 'models';
+  // Default every group collapsed — the sidebar is a navigator, not a directory
+  // dump. The group containing the active endpoint auto-opens (see effect below)
+  // so deep links and palette jumps don't strand the user inside a closed group.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const isOpen = (id: string) => openGroups[id] ?? false;
   const toggle = (id: string) => setOpenGroups((s) => ({ ...s, [id]: !isOpen(id) }));
   const ensureOpen = (id: string) => setOpenGroups((s) => ({ ...s, [id]: true }));
+
+  useEffect(() => {
+    if (!activeId) return;
+    const target = groups.find(
+      (g) => g.id === activeId || g.endpoints.some((ep) => ep.id === activeId),
+    );
+    if (target) ensureOpen(target.id);
+  }, [activeId, groups]);
 
   return (
     <aside className="sidebar">

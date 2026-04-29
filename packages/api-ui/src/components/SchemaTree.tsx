@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { OpenApiDoc, SchemaObj } from '../types';
 import { resolveRef } from '../spec';
@@ -46,19 +46,11 @@ function SchemaRow({
   required: boolean;
   depth: number;
 }) {
-  const selectEndpoint = useStore((s) => s.selectEndpoint);
   const resolved = resolveRef(doc, prop) ?? prop;
   const [open, setOpen] = useState(true);
   const children = resolved.properties ?? (resolved.items?.properties ? resolved.items.properties : undefined);
   const hasChildren = !!children && Object.keys(children).length > 0;
-  const typeLabel = deriveTypeLabel(resolved);
   const example = resolved.example ?? prop.example;
-  // Only surface the ref name for enum-typed refs — object refs already expand
-  // inline so the structure makes the source obvious; enums collapse to a single
-  // `enum` token and lose that signal.
-  const refName = extractRefName(prop) ?? extractRefName(prop.items);
-  const isEnum = !!resolved.enum;
-  const linkedModel = isEnum && refName && doc.components?.schemas?.[refName] ? refName : null;
 
   return (
     <>
@@ -79,22 +71,7 @@ function SchemaRow({
           <span>{name}</span>
           {required && <span className="schema-req">required</span>}
         </div>
-        <div className={`schema-type type-${typeLabel}`}>
-          {typeLabel}
-          {linkedModel && (
-            <button
-              type="button"
-              className="schema-type-ref"
-              onClick={(e) => {
-                e.stopPropagation();
-                selectEndpoint(`model:${linkedModel}`);
-              }}
-              title={`Go to ${linkedModel}`}
-            >
-              {linkedModel}
-            </button>
-          )}
-        </div>
+        <TypeCell doc={doc} prop={prop} resolved={resolved} />
         <div>
           {resolved.description && <div className="schema-note">{resolved.description}</div>}
           {example !== undefined && example !== null && (
@@ -121,17 +98,67 @@ function SchemaRow({
 }
 
 /** Pull the trailing segment off a `#/components/schemas/<Name>` pointer. */
-function extractRefName(schema: SchemaObj | undefined): string | null {
+export function extractRefName(schema: SchemaObj | undefined): string | null {
   if (!schema?.$ref) return null;
   const m = /^#\/components\/schemas\/(.+)$/.exec(schema.$ref);
   return m ? m[1]! : null;
 }
 
-function deriveTypeLabel(schema: SchemaObj): string {
-  if (schema.enum) return 'enum';
-  if (schema.type === 'array' && schema.items) {
-    const itemType = schema.items.type ?? 'object';
-    return `array<${itemType}>`;
+function linkedModelName(doc: OpenApiDoc, refName: string | null): string | null {
+  return refName && doc.components?.schemas?.[refName] ? refName : null;
+}
+
+/**
+ * Type column for one schema row. Splits the rendered text from the CSS class
+ * so `array<UserDto>` stays both colored as an array and clickable as a model.
+ */
+function TypeCell({
+  doc,
+  prop,
+  resolved,
+}: {
+  doc: OpenApiDoc;
+  prop: SchemaObj;
+  resolved: SchemaObj;
+}) {
+  const selectEndpoint = useStore((s) => s.selectEndpoint);
+  const goto = (name: string) => selectEndpoint(`model:${name}`);
+
+  const ModelLink = ({ name }: { name: string }): ReactNode => (
+    <button
+      type="button"
+      className="schema-type-ref"
+      onClick={(e) => {
+        e.stopPropagation();
+        goto(name);
+      }}
+      title={`Go to ${name}`}
+    >
+      {name}
+    </button>
+  );
+
+  // array<…>: prefer linking to the item's $ref when one resolves to a known
+  // component schema, otherwise fall back to the inferred primitive type.
+  if (resolved.type === 'array' && resolved.items) {
+    const itemRef = linkedModelName(doc, extractRefName(prop.items) ?? extractRefName(resolved.items));
+    return (
+      <div className="schema-type type-array">
+        array&lt;{itemRef ? <ModelLink name={itemRef} /> : (resolved.items.type ?? 'object')}&gt;
+      </div>
+    );
   }
-  return schema.type ?? (schema.properties ? 'object' : 'any');
+
+  if (resolved.enum) {
+    const enumRef = linkedModelName(doc, extractRefName(prop));
+    return (
+      <div className="schema-type type-enum">
+        enum
+        {enumRef && <ModelLink name={enumRef} />}
+      </div>
+    );
+  }
+
+  const kind = resolved.type ?? (resolved.properties ? 'object' : 'any');
+  return <div className={`schema-type type-${kind}`}>{kind}</div>;
 }

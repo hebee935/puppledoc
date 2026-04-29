@@ -4,9 +4,35 @@ import type { MediaType, OpenApiDoc, Operation, Parameter, RestEndpoint, SchemaO
 import { resolveRef } from '../spec';
 import { useStore } from '../store';
 import { MethodPill } from '../components/MethodPill';
-import { SchemaTree } from '../components/SchemaTree';
+import { SchemaTree, extractRefName } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
 import { renderMarkdownInline } from '../markdown';
+
+/** Resolve `schema` (or its array items) to a known component-schema name. */
+function refModelName(doc: OpenApiDoc, schema: SchemaObj | undefined): string | null {
+  if (!schema) return null;
+  const direct = extractRefName(schema);
+  if (direct && doc.components?.schemas?.[direct]) return direct;
+  if (schema.type === 'array' && schema.items) {
+    const itemRef = extractRefName(schema.items);
+    if (itemRef && doc.components?.schemas?.[itemRef]) return itemRef;
+  }
+  return null;
+}
+
+function ModelLink({ name }: { name: string }) {
+  const selectEndpoint = useStore((s) => s.selectEndpoint);
+  return (
+    <button
+      type="button"
+      className="schema-type-ref card-head-ref"
+      onClick={() => selectEndpoint(`model:${name}`)}
+      title={`Go to ${name}`}
+    >
+      {name}
+    </button>
+  );
+}
 
 interface Props {
   doc: OpenApiDoc;
@@ -79,6 +105,7 @@ export function RestEndpointPage({ doc, endpoint }: Props) {
       <SectionCard
         title="Request Body"
         subtitle={bodyKind ?? undefined}
+        modelName={refModelName(doc, bodySchema)}
         hide={!bodySchema}
       >
         {bodySchema && <SchemaTree doc={doc} schema={bodySchema} />}
@@ -94,11 +121,13 @@ export function RestEndpointPage({ doc, endpoint }: Props) {
 function SectionCard({
   title,
   subtitle,
+  modelName,
   hide,
   children,
 }: {
   title: string;
   subtitle?: string;
+  modelName?: string | null;
   hide?: boolean;
   children: React.ReactNode;
 }) {
@@ -106,7 +135,10 @@ function SectionCard({
   return (
     <section className="card">
       <header className="card-head">
-        <h3 className="card-title">{title}</h3>
+        <h3 className="card-title">
+          {title}
+          {modelName && <ModelLink name={modelName} />}
+        </h3>
         {subtitle && <span className="card-subtitle">{subtitle}</span>}
       </header>
       <div className="card-body">{children}</div>
@@ -203,9 +235,16 @@ function ResponseBody({ doc, media }: { doc: OpenApiDoc; media: MediaType }) {
   const resolvedSchema = resolveRef(doc, media.schema) ?? media.schema;
   const hasSchema = !!resolvedSchema && (resolvedSchema.properties || resolvedSchema.items || resolvedSchema.type);
   const example = media.example ?? firstValue(media.examples)?.value ?? resolvedSchema?.example;
+  const modelName = refModelName(doc, media.schema);
   if (!hasSchema && example === undefined) return null;
   return (
     <div className="response-body">
+      {modelName && (
+        <div className="response-model-head">
+          <span className="response-model-label">Model</span>
+          <ModelLink name={modelName} />
+        </div>
+      )}
       {hasSchema && resolvedSchema && <ResponseSchema doc={doc} schema={resolvedSchema} />}
       {example !== undefined && (
         <div className="example-block">
@@ -220,11 +259,17 @@ function ResponseBody({ doc, media }: { doc: OpenApiDoc; media: MediaType }) {
 function ResponseSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
   if (schema.type === 'array' && schema.items) {
     const item = resolveRef(doc, schema.items) ?? schema.items;
+    const itemRef = extractRefName(schema.items);
+    const linkedItem = itemRef && doc.components?.schemas?.[itemRef] ? itemRef : null;
     if (item.properties) {
       return (
         <div>
           <div className="array-label">
-            array&lt;{item.title ?? item.type ?? 'object'}&gt;
+            array&lt;
+            {linkedItem
+              ? <ModelLink name={linkedItem} />
+              : (item.title ?? item.type ?? 'object')}
+            &gt;
           </div>
           <SchemaTree doc={doc} schema={item} />
         </div>

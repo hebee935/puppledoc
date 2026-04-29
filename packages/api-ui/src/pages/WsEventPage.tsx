@@ -1,10 +1,35 @@
 import { Lock, Play } from 'lucide-react';
-import type { OpenApiDoc, WsEventEndpoint } from '../types';
+import type { OpenApiDoc, SchemaObj, WsEventEndpoint } from '../types';
 import { resolveRef } from '../spec';
 import { MethodPill } from '../components/MethodPill';
-import { SchemaTree } from '../components/SchemaTree';
+import { SchemaTree, extractRefName } from '../components/SchemaTree';
 import { useStore } from '../store';
 import { renderMarkdownInline } from '../markdown';
+
+function refModelName(doc: OpenApiDoc, schema: SchemaObj | undefined): string | null {
+  if (!schema) return null;
+  const direct = extractRefName(schema);
+  if (direct && doc.components?.schemas?.[direct]) return direct;
+  if (schema.type === 'array' && schema.items) {
+    const itemRef = extractRefName(schema.items);
+    if (itemRef && doc.components?.schemas?.[itemRef]) return itemRef;
+  }
+  return null;
+}
+
+function ModelLink({ name }: { name: string }) {
+  const selectEndpoint = useStore((s) => s.selectEndpoint);
+  return (
+    <button
+      type="button"
+      className="schema-type-ref card-head-ref"
+      onClick={() => selectEndpoint(`model:${name}`)}
+      title={`Go to ${name}`}
+    >
+      {name}
+    </button>
+  );
+}
 
 interface Props {
   doc: OpenApiDoc;
@@ -56,7 +81,10 @@ export function WsEventPage({ doc, endpoint }: Props) {
 
       <section className="card">
         <header className="card-head">
-          <h3 className="card-title">Frame</h3>
+          <h3 className="card-title">
+            Frame
+            {refModelName(doc, ev.payload) && <ModelLink name={refModelName(doc, ev.payload)!} />}
+          </h3>
           <span className="card-subtitle">
             {ev.direction === 'send' ? 'server → client' : 'client → server'}
           </span>
@@ -71,6 +99,7 @@ export function WsEventPage({ doc, endpoint }: Props) {
           <header className="card-head">
             <h3 className="card-title">
               Reply
+              {refModelName(doc, ev.reply) && <ModelLink name={refModelName(doc, ev.reply)!} />}
               {ev.replyEvent && (
                 <code className="card-title-event">type: "{ev.replyEvent}"</code>
               )}
