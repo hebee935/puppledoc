@@ -74,15 +74,16 @@ function ModelSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
   if (schema.type === 'array' && schema.items) {
     return (
       <div>
-        <div className="array-label">array&lt;{schema.items.type ?? 'object'}&gt;</div>
+        <div className="array-label">
+          array&lt;{schema.items.format ?? schema.items.type ?? 'object'}&gt;
+        </div>
         {schema.items.properties && <SchemaTree doc={doc} schema={schema.items} />}
       </div>
     );
   }
   return (
     <div className="primitive-type">
-      {schema.type ?? 'any'}
-      {schema.format ? ` (${schema.format})` : ''}
+      {schema.format ?? schema.type ?? 'any'}
     </div>
   );
 }
@@ -90,7 +91,7 @@ function ModelSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
 function deriveTypeLabel(schema: SchemaObj): string {
   if (schema.enum) return 'enum';
   if (schema.type === 'array' && schema.items) {
-    return `array<${schema.items.type ?? 'object'}>`;
+    return `array<${schema.items.format ?? schema.items.type ?? 'object'}>`;
   }
-  return schema.type ?? (schema.properties ? 'object' : 'any');
+  return schema.format ?? schema.type ?? (schema.properties ? 'object' : 'any');
 }

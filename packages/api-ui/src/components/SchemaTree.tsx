@@ -54,7 +54,10 @@ function SchemaRow({
 
   return (
     <>
-      <div className={depth > 0 ? 'schema-row nested' : 'schema-row'}>
+      <div
+        className={depth > 0 ? 'schema-row nested' : 'schema-row'}
+        style={depth > 0 ? ({ '--depth': depth } as React.CSSProperties) : undefined}
+      >
         <div className="schema-name">
           {hasChildren ? (
             <button
@@ -139,12 +142,17 @@ function TypeCell({
   );
 
   // array<…>: prefer linking to the item's $ref when one resolves to a known
-  // component schema, otherwise fall back to the inferred primitive type.
+  // component schema, otherwise fall back to the format / inferred primitive type.
   if (resolved.type === 'array' && resolved.items) {
     const itemRef = linkedModelName(doc, extractRefName(prop.items) ?? extractRefName(resolved.items));
+    const itemLabel = resolved.items.format ?? resolved.items.type ?? 'object';
     return (
       <div className="schema-type type-array">
-        array&lt;{itemRef ? <ModelLink name={itemRef} /> : (resolved.items.type ?? 'object')}&gt;
+        {itemRef ? (
+          <span className="model-array-wrap">array&lt;<ModelLink name={itemRef} />&gt;</span>
+        ) : (
+          <>array&lt;{itemLabel}&gt;</>
+        )}
       </div>
     );
   }
@@ -159,6 +167,10 @@ function TypeCell({
     );
   }
 
-  const kind = resolved.type ?? (resolved.properties ? 'object' : 'any');
+  // Format wins over type when present — `date-time`, `uri`, `binary` etc. are
+  // strictly more informative than `string`, and they also rescue the case where
+  // a schema generator (NestJS swagger CLI) couldn't infer the type from a
+  // `string | null` union and fell back to `object`.
+  const kind = resolved.format ?? resolved.type ?? (resolved.properties ? 'object' : 'any');
   return <div className={`schema-type type-${kind}`}>{kind}</div>;
 }

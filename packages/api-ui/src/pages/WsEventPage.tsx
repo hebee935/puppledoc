@@ -6,13 +6,18 @@ import { SchemaTree, extractRefName } from '../components/SchemaTree';
 import { useStore } from '../store';
 import { renderMarkdownInline } from '../markdown';
 
-function refModelName(doc: OpenApiDoc, schema: SchemaObj | undefined): string | null {
+interface RefBadge {
+  name: string;
+  isArray: boolean;
+}
+
+function refBadge(doc: OpenApiDoc, schema: SchemaObj | undefined): RefBadge | null {
   if (!schema) return null;
   const direct = extractRefName(schema);
-  if (direct && doc.components?.schemas?.[direct]) return direct;
+  if (direct && doc.components?.schemas?.[direct]) return { name: direct, isArray: false };
   if (schema.type === 'array' && schema.items) {
     const itemRef = extractRefName(schema.items);
-    if (itemRef && doc.components?.schemas?.[itemRef]) return itemRef;
+    if (itemRef && doc.components?.schemas?.[itemRef]) return { name: itemRef, isArray: true };
   }
   return null;
 }
@@ -28,6 +33,15 @@ function ModelLink({ name }: { name: string }) {
     >
       {name}
     </button>
+  );
+}
+
+function ModelBadge({ badge }: { badge: RefBadge }) {
+  if (!badge.isArray) return <ModelLink name={badge.name} />;
+  return (
+    <span className="model-array-wrap">
+      array&lt;<ModelLink name={badge.name} />&gt;
+    </span>
   );
 }
 
@@ -79,38 +93,46 @@ export function WsEventPage({ doc, endpoint }: Props) {
         )}
       </header>
 
-      <section className="card">
-        <header className="card-head">
-          <h3 className="card-title">
-            Frame
-            {refModelName(doc, ev.payload) && <ModelLink name={refModelName(doc, ev.payload)!} />}
-          </h3>
-          <span className="card-subtitle">
-            {ev.direction === 'send' ? 'server → client' : 'client → server'}
-          </span>
-        </header>
-        <div className="card-body">
-          <SchemaTree doc={doc} schema={payloadSchema} />
-        </div>
-      </section>
+      {(() => {
+        const payloadBadge = refBadge(doc, ev.payload);
+        return (
+          <section className="card">
+            <header className="card-head">
+              <h3 className="card-title">
+                Frame
+                {payloadBadge && <ModelBadge badge={payloadBadge} />}
+              </h3>
+              <span className="card-subtitle">
+                {ev.direction === 'send' ? 'server → client' : 'client → server'}
+              </span>
+            </header>
+            <div className="card-body">
+              <SchemaTree doc={doc} schema={payloadSchema} />
+            </div>
+          </section>
+        );
+      })()}
 
-      {replySchema && (
-        <section className="card">
-          <header className="card-head">
-            <h3 className="card-title">
-              Reply
-              {refModelName(doc, ev.reply) && <ModelLink name={refModelName(doc, ev.reply)!} />}
-              {ev.replyEvent && (
-                <code className="card-title-event">type: "{ev.replyEvent}"</code>
-              )}
-            </h3>
-            <span className="card-subtitle">← server</span>
-          </header>
-          <div className="card-body">
-            <SchemaTree doc={doc} schema={replySchema} />
-          </div>
-        </section>
-      )}
+      {replySchema && (() => {
+        const replyBadge = refBadge(doc, ev.reply);
+        return (
+          <section className="card">
+            <header className="card-head">
+              <h3 className="card-title">
+                Reply
+                {replyBadge && <ModelBadge badge={replyBadge} />}
+                {ev.replyEvent && (
+                  <code className="card-title-event">type: "{ev.replyEvent}"</code>
+                )}
+              </h3>
+              <span className="card-subtitle">← server</span>
+            </header>
+            <div className="card-body">
+              <SchemaTree doc={doc} schema={replySchema} />
+            </div>
+          </section>
+        );
+      })()}
     </article>
   );
 }

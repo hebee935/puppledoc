@@ -8,14 +8,19 @@ import { SchemaTree, extractRefName } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
 import { renderMarkdownInline } from '../markdown';
 
+interface RefBadge {
+  name: string;
+  isArray: boolean;
+}
+
 /** Resolve `schema` (or its array items) to a known component-schema name. */
-function refModelName(doc: OpenApiDoc, schema: SchemaObj | undefined): string | null {
+function refBadge(doc: OpenApiDoc, schema: SchemaObj | undefined): RefBadge | null {
   if (!schema) return null;
   const direct = extractRefName(schema);
-  if (direct && doc.components?.schemas?.[direct]) return direct;
+  if (direct && doc.components?.schemas?.[direct]) return { name: direct, isArray: false };
   if (schema.type === 'array' && schema.items) {
     const itemRef = extractRefName(schema.items);
-    if (itemRef && doc.components?.schemas?.[itemRef]) return itemRef;
+    if (itemRef && doc.components?.schemas?.[itemRef]) return { name: itemRef, isArray: true };
   }
   return null;
 }
@@ -31,6 +36,16 @@ function ModelLink({ name }: { name: string }) {
     >
       {name}
     </button>
+  );
+}
+
+/** Render a model badge — wrapped in `array<…>` when the schema is a ref array. */
+function ModelBadge({ badge }: { badge: RefBadge }) {
+  if (!badge.isArray) return <ModelLink name={badge.name} />;
+  return (
+    <span className="model-array-wrap">
+      array&lt;<ModelLink name={badge.name} />&gt;
+    </span>
   );
 }
 
@@ -105,7 +120,7 @@ export function RestEndpointPage({ doc, endpoint }: Props) {
       <SectionCard
         title="Request Body"
         subtitle={bodyKind ?? undefined}
-        modelName={refModelName(doc, bodySchema)}
+        badge={refBadge(doc, bodySchema)}
         hide={!bodySchema}
       >
         {bodySchema && <SchemaTree doc={doc} schema={bodySchema} />}
@@ -121,13 +136,13 @@ export function RestEndpointPage({ doc, endpoint }: Props) {
 function SectionCard({
   title,
   subtitle,
-  modelName,
+  badge,
   hide,
   children,
 }: {
   title: string;
   subtitle?: string;
-  modelName?: string | null;
+  badge?: RefBadge | null;
   hide?: boolean;
   children: React.ReactNode;
 }) {
@@ -137,7 +152,7 @@ function SectionCard({
       <header className="card-head">
         <h3 className="card-title">
           {title}
-          {modelName && <ModelLink name={modelName} />}
+          {badge && <ModelBadge badge={badge} />}
         </h3>
         {subtitle && <span className="card-subtitle">{subtitle}</span>}
       </header>
@@ -235,17 +250,19 @@ function ResponseBody({ doc, media }: { doc: OpenApiDoc; media: MediaType }) {
   const resolvedSchema = resolveRef(doc, media.schema) ?? media.schema;
   const hasSchema = !!resolvedSchema && (resolvedSchema.properties || resolvedSchema.items || resolvedSchema.type);
   const example = media.example ?? firstValue(media.examples)?.value ?? resolvedSchema?.example;
-  const modelName = refModelName(doc, media.schema);
+  const badge = refBadge(doc, media.schema);
   if (!hasSchema && example === undefined) return null;
   return (
     <div className="response-body">
-      {modelName && (
+      {badge && (
         <div className="response-model-head">
           <span className="response-model-label">Model</span>
-          <ModelLink name={modelName} />
+          <ModelBadge badge={badge} />
         </div>
       )}
-      {hasSchema && resolvedSchema && <ResponseSchema doc={doc} schema={resolvedSchema} />}
+      {hasSchema && resolvedSchema && (
+        <ResponseSchema doc={doc} schema={resolvedSchema} hideArrayLabel={!!badge?.isArray} />
+      )}
       {example !== undefined && (
         <div className="example-block">
           <div className="example-head">Example</div>
@@ -256,12 +273,23 @@ function ResponseBody({ doc, media }: { doc: OpenApiDoc; media: MediaType }) {
   );
 }
 
-function ResponseSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
+function ResponseSchema({
+  doc,
+  schema,
+  hideArrayLabel,
+}: {
+  doc: OpenApiDoc;
+  schema: SchemaObj;
+  hideArrayLabel?: boolean;
+}) {
   if (schema.type === 'array' && schema.items) {
     const item = resolveRef(doc, schema.items) ?? schema.items;
     const itemRef = extractRefName(schema.items);
     const linkedItem = itemRef && doc.components?.schemas?.[itemRef] ? itemRef : null;
     if (item.properties) {
+      // The Model header above already says `array<Dto>` — don't repeat the
+      // wrapper, just show the item's fields.
+      if (hideArrayLabel && linkedItem) return <SchemaTree doc={doc} schema={item} />;
       return (
         <div>
           <div className="array-label">
@@ -279,8 +307,7 @@ function ResponseSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj })
   if (schema.properties) return <SchemaTree doc={doc} schema={schema} />;
   return (
     <div className="primitive-type">
-      {schema.type ?? 'any'}
-      {schema.format ? ` (${schema.format})` : ''}
+      {schema.format ?? schema.type ?? 'any'}
     </div>
   );
 }
@@ -301,7 +328,10 @@ function firstValue<T>(m: Record<string, T> | undefined): T | undefined {
 function deriveTypeLabel(schema: SchemaObj | undefined): string {
   if (!schema) return 'any';
   if (schema.enum) return 'enum';
-  if (schema.type === 'array' && schema.items) return `array<${schema.items.type ?? 'object'}>`;
-  return schema.type ?? 'any';
+  if (schema.type === 'array' && schema.items) {
+    return `array<${schema.items.format ?? schema.items.type ?? 'object'}>`;
+  }
+  // Format wins over type — see SchemaTree for the full rationale.
+  return schema.format ?? schema.type ?? 'any';
 }
 
