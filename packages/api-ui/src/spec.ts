@@ -157,6 +157,19 @@ function slug(s: string): string {
     .replace(/^-|-$/g, '');
 }
 
+/**
+ * Short, list-friendly classification of a schema (`object`, `enum`, `array`, …).
+ * Used by sidebar/list/palette chips where width is constrained — the detail
+ * page derives its own richer label that includes generic args like `array<X>`.
+ */
+export function deriveSchemaKind(schema: SchemaObj): string {
+  if (schema.enum) return 'enum';
+  if (schema.oneOf || schema.anyOf) return 'union';
+  if (schema.type) return schema.type;
+  if (schema.properties || schema.allOf) return 'object';
+  return 'any';
+}
+
 /** Resolve a `$ref` pointer within the document's components.schemas table. */
 export function resolveRef(doc: OpenApiDoc, schema: SchemaObj | undefined): SchemaObj | undefined {
   if (!schema) return undefined;

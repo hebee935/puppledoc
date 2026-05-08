@@ -2,6 +2,7 @@ import type { EndpointGroup } from '../types';
 import { MethodPill } from '../components/MethodPill';
 import { useStore } from '../store';
 import { renderMarkdownInline } from '../markdown';
+import { deriveSchemaKind } from '../spec';
 
 /**
  * Summary page for a tag (REST tag or WebSocket gateway). Lists every
@@ -42,7 +43,7 @@ export function TagSummaryPage({ group }: { group: EndpointGroup }) {
                 title={ep.title}
               >
                 {ep.kind === 'model' ? (
-                  <span className="model-type-chip">type</span>
+                  <span className="model-type-chip">{deriveSchemaKind(ep.schema)}</span>
                 ) : (
                   <MethodPill method={ep.method} />
                 )}

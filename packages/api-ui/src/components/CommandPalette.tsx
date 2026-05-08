@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../store';
-import { flattenEndpoints } from '../spec';
+import { deriveSchemaKind, flattenEndpoints } from '../spec';
 import { MethodPill } from './MethodPill';
 
 export function CommandPalette() {
@@ -81,7 +81,7 @@ export function CommandPalette() {
               }}
             >
               {ep.kind === 'model' ? (
-                <span className="model-type-chip">type</span>
+                <span className="model-type-chip">{deriveSchemaKind(ep.schema)}</span>
               ) : (
                 <MethodPill method={ep.method} />
               )}
