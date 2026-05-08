@@ -1,5 +1,11 @@
 # @puppledoc/space-ui
 
+## 1.2.2
+
+### Patch Changes
+
+- dbac3e5: Models list / command palette: classify each schema chip as `OBJECT`, `ENUM`, `ARRAY`, `UNION`, etc. instead of the generic `TYPE`. Detail page keeps its richer `array<X>` label.
+
 ## 1.2.1
 
 ### Patch Changes
