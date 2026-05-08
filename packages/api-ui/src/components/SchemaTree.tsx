@@ -77,6 +77,7 @@ function SchemaRow({
         <TypeCell doc={doc} prop={prop} resolved={resolved} />
         <div>
           {resolved.description && <div className="schema-note">{resolved.description}</div>}
+          {resolved.enum && <EnumValues values={resolved.enum} />}
           {example !== undefined && example !== null && (
             <div className="schema-example">
               <b>e.g.</b>{' '}
@@ -97,6 +98,22 @@ function SchemaRow({
           />
         ))}
     </>
+  );
+}
+
+/**
+ * Render enum members as inline chips. Used inside row description columns so
+ * users can see the allowed values without clicking through to the model page.
+ */
+export function EnumValues({ values }: { values: unknown[] }) {
+  return (
+    <div className="model-enum schema-enum">
+      {values.map((v, i) => (
+        <code key={i} className="model-enum-value">
+          {typeof v === 'string' ? `"${v}"` : String(v)}
+        </code>
+      ))}
+    </div>
   );
 }
 

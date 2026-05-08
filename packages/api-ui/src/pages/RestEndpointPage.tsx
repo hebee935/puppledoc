@@ -4,7 +4,7 @@ import type { MediaType, OpenApiDoc, Operation, Parameter, RestEndpoint, SchemaO
 import { resolveRef } from '../spec';
 import { useStore } from '../store';
 import { MethodPill } from '../components/MethodPill';
-import { SchemaTree, extractRefName } from '../components/SchemaTree';
+import { SchemaTree, EnumValues, extractRefName } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
 import { renderMarkdownInline } from '../markdown';
 
@@ -205,6 +205,7 @@ function ParamList({ doc, params }: { doc: OpenApiDoc; params: Parameter[] }) {
             <div className={`schema-type type-${typeLabel}`}>{typeLabel}</div>
             <div>
               {p.description && <div className="schema-note">{p.description}</div>}
+              {schema?.enum && <EnumValues values={schema.enum} />}
               {example !== undefined && example !== null && (
                 <div className="schema-example">
                   <b>e.g.</b>{' '}
