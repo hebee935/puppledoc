@@ -1,5 +1,11 @@
 # @puppledoc/space-ui
 
+## 1.2.3
+
+### Patch Changes
+
+- 625b40f: Show enum members inline under parameter rows and DTO property rows. Previously the UI labeled the field as `enum` but never listed the allowed values, so users had to click through to the model page to see them.
+
 ## 1.2.2
 
 ### Patch Changes
