@@ -184,10 +184,15 @@ function TypeCell({
     );
   }
 
-  // Format wins over type when present — `date-time`, `uri`, `binary` etc. are
-  // strictly more informative than `string`, and they also rescue the case where
-  // a schema generator (NestJS swagger CLI) couldn't infer the type from a
-  // `string | null` union and fell back to `object`.
-  const kind = resolved.format ?? resolved.type ?? (resolved.properties ? 'object' : 'any');
-  return <div className={`schema-type type-${kind}`}>{kind}</div>;
+  // Show base type up front, then format in brackets — keeps the row's color
+  // tied to the underlying primitive (e.g. `string [ulid]` stays green like
+  // every other string) and makes the format read as a qualifier rather than a
+  // standalone type the reader has to recognize.
+  const base = resolved.type ?? (resolved.properties ? 'object' : 'any');
+  return (
+    <div className={`schema-type type-${base}`}>
+      {base}
+      {resolved.format && <span className="schema-format"> [{resolved.format}]</span>}
+    </div>
+  );
 }

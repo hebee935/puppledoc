@@ -19,6 +19,7 @@ const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'patch', 'delete', 'op
  * document; within a group, endpoints keep their declared order.
  */
 export function normalize(doc: OpenApiDoc): EndpointGroup[] {
+  liftInlineEnums(doc);
   const groups = new Map<string, EndpointGroup>();
   const upsertGroup = (id: string, name: string, description?: string): EndpointGroup => {
     let g = groups.get(id);
@@ -155,6 +156,101 @@ function slug(s: string): string {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-|-$/g, '');
+}
+
+/**
+ * NestJS swagger inlines enum values when `@ApiProperty`'s `enumName` is omitted,
+ * which leaves every such enum unlinkable in the UI. Lift those inline enums
+ * into `components.schemas` so they show up in the Models group and the type
+ * chip becomes a clickable model link — equivalent to the user having set
+ * `enumName` everywhere. Identical value sets dedupe to a single named entry,
+ * including pre-existing named enums (so an inline match reuses the user's
+ * `enumName` whenever they did set one elsewhere).
+ */
+function liftInlineEnums(doc: OpenApiDoc): void {
+  if (!doc.components) doc.components = {};
+  if (!doc.components.schemas) doc.components.schemas = {};
+  const schemas = doc.components.schemas;
+  const taken = new Set(Object.keys(schemas));
+  const byHash = new Map<string, string>();
+  for (const [name, s] of Object.entries(schemas)) {
+    if (s.enum) byHash.set(hashEnum(s.enum), name);
+  }
+
+  const synth = (preferred: string, values: unknown[], type?: string): string => {
+    const hash = hashEnum(values);
+    const found = byHash.get(hash);
+    if (found) return found;
+    let name = preferred;
+    let i = 2;
+    while (taken.has(name)) name = `${preferred}${i++}`;
+    schemas[name] = { ...(type ? { type } : {}), enum: values };
+    taken.add(name);
+    byHash.set(hash, name);
+    return name;
+  };
+
+  const liftSchema = (host: SchemaObj, key: string, contextName: string): void => {
+    const child = (host as unknown as Record<string, SchemaObj | undefined>)[key];
+    if (!child || child.$ref) return;
+    if (child.enum) {
+      const lifted = synth(contextName, child.enum, child.type);
+      (host as unknown as Record<string, SchemaObj>)[key] = { $ref: `#/components/schemas/${lifted}` };
+      return;
+    }
+    if (child.type === 'array' && child.items && !child.items.$ref && child.items.enum) {
+      const lifted = synth(contextName, child.items.enum, child.items.type);
+      child.items = { $ref: `#/components/schemas/${lifted}` };
+      return;
+    }
+    visit(child, contextName);
+  };
+
+  function visit(schema: SchemaObj, ctx: string): void {
+    if (schema.$ref) return;
+    if (schema.properties) {
+      for (const propName of Object.keys(schema.properties)) {
+        liftSchema(schema.properties as unknown as SchemaObj, propName, capitalize(propName));
+      }
+    }
+    if (schema.items && !schema.items.$ref) {
+      visit(schema.items, ctx);
+    }
+  }
+
+  // Snapshot keys — synth() adds entries we don't need to revisit.
+  for (const name of Object.keys(schemas)) {
+    const s = schemas[name];
+    if (!s || s.enum || s.$ref) continue;
+    visit(s, name);
+  }
+
+  // Operation parameters: lift inline enums on query/path/header schemas too.
+  for (const item of Object.values(doc.paths ?? {})) {
+    if (!item) continue;
+    for (const method of HTTP_METHODS) {
+      const op = item[method];
+      if (!op?.parameters) continue;
+      for (const p of op.parameters) {
+        if (!p.schema || p.schema.$ref) continue;
+        if (p.schema.enum) {
+          const lifted = synth(capitalize(p.name), p.schema.enum, p.schema.type);
+          p.schema = { $ref: `#/components/schemas/${lifted}` };
+        } else if (p.schema.type === 'array' && p.schema.items && !p.schema.items.$ref && p.schema.items.enum) {
+          const lifted = synth(capitalize(p.name), p.schema.items.enum, p.schema.items.type);
+          p.schema = { type: 'array', items: { $ref: `#/components/schemas/${lifted}` } };
+        }
+      }
+    }
+  }
+}
+
+function hashEnum(values: unknown[]): string {
+  return JSON.stringify([...values].sort());
+}
+
+function capitalize(s: string): string {
+  return s.length > 0 ? s[0]!.toUpperCase() + s.slice(1) : s;
 }
 
 /**

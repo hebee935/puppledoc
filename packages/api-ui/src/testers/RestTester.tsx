@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Play, Key, Copy, Plus, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Play, Key, Copy, Plus, X } from 'lucide-react';
 import type { OpenApiDoc, RequestBody, RestEndpoint, SchemaObj } from '../types';
 import { MethodPill } from '../components/MethodPill';
 import { CodeBlock } from '../components/CodeBlock';
@@ -272,6 +272,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                     value={paramVals[p.name] ?? ''}
                     onChange={(v) => setParamVals((prev) => ({ ...prev, [p.name]: v }))}
                     fieldKey={`path-${p.name}`}
+                    enumValues={paramEnum(doc, p.schema)}
                   />
                 ))}
               </>
@@ -288,6 +289,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                     value={queryVals[p.name] ?? ''}
                     onChange={(v) => setQueryVals((prev) => ({ ...prev, [p.name]: v }))}
                     fieldKey={`query-${p.name}`}
+                    enumValues={paramEnum(doc, p.schema)}
                   />
                 ))}
               </>
@@ -346,6 +348,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                     value={headerVals[p.name] ?? ''}
                     onChange={(v) => setHeaderVals((prev) => ({ ...prev, [p.name]: v }))}
                     fieldKey={`header-${p.name}`}
+                    enumValues={paramEnum(doc, p.schema)}
                   />
                 ))}
               </>
@@ -585,6 +588,13 @@ function detectBody(doc: OpenApiDoc, rb: RequestBody | undefined): BodySpec | nu
   return null;
 }
 
+/** Enum members on a parameter schema, after resolving any $ref. Returns `undefined` so the caller can pass it straight to `<ParamInput enumValues>` without coalescing. */
+function paramEnum(doc: OpenApiDoc, schema: SchemaObj | undefined): unknown[] | undefined {
+  if (!schema) return undefined;
+  const resolved = resolveRef(doc, schema) ?? schema;
+  return resolved.enum && resolved.enum.length > 0 ? resolved.enum : undefined;
+}
+
 interface FormField {
   name: string;
   isFile: boolean;
@@ -679,6 +689,7 @@ function ParamInput({
   value,
   onChange,
   fieldKey,
+  enumValues,
 }: {
   label: string;
   required: boolean;
@@ -686,6 +697,7 @@ function ParamInput({
   value: string;
   onChange: (v: string) => void;
   fieldKey?: string;
+  enumValues?: unknown[];
 }) {
   return (
     <div className="param-row">
@@ -693,13 +705,123 @@ function ParamInput({
         {label}
         {required && <span className="req">*</span>}
       </span>
-      <input
-        className="input"
+      {enumValues ? (
+        <EnumSelect
+          value={value}
+          onChange={onChange}
+          options={enumValues.map(String)}
+          required={required}
+          fieldKey={fieldKey}
+        />
+      ) : (
+        <input
+          className="input"
+          data-field={fieldKey}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Custom dropdown for enum-typed parameters. Native `<select>` ignores theming
+ * for the popup chrome — this component matches the tester's dark surface and
+ * gives the menu the same shape as the inputs around it.
+ */
+function EnumSelect({
+  value,
+  onChange,
+  options,
+  required,
+  fieldKey,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  required: boolean;
+  fieldKey?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const items = required ? options : ['', ...options];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const display = value || (required ? '— select —' : '— none —');
+
+  return (
+    <div className="enum-select" ref={wrapRef} data-open={open || undefined}>
+      <button
+        type="button"
+        className="input enum-select-trigger"
         data-field={fieldKey}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
+        data-empty={value ? undefined : true}
+        onClick={() => {
+          setOpen((o) => !o);
+          setCursor(Math.max(0, items.indexOf(value)));
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        <span className="enum-select-value">{display}</span>
+        <ChevronDown size={12} className="enum-select-chev" />
+      </button>
+      {open && (
+        <div
+          className="enum-select-menu"
+          role="listbox"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              setOpen(false);
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setCursor((c) => Math.min(c + 1, items.length - 1));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setCursor((c) => Math.max(c - 1, 0));
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              onChange(items[cursor] ?? '');
+              setOpen(false);
+            }
+          }}
+          tabIndex={-1}
+        >
+          {items.map((opt, i) => (
+            <button
+              key={`${opt}-${i}`}
+              type="button"
+              className="enum-select-option"
+              data-active={i === cursor || undefined}
+              data-selected={opt === value || undefined}
+              data-empty={opt === '' || undefined}
+              onMouseEnter={() => setCursor(i)}
+              onClick={() => {
+                onChange(opt);
+                setOpen(false);
+              }}
+            >
+              {opt || (required ? '— select —' : '— none —')}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -93,5 +93,6 @@ function deriveTypeLabel(schema: SchemaObj): string {
   if (schema.type === 'array' && schema.items) {
     return `array<${schema.items.format ?? schema.items.type ?? 'object'}>`;
   }
-  return schema.format ?? schema.type ?? (schema.properties ? 'object' : 'any');
+  const base = schema.type ?? (schema.properties ? 'object' : 'any');
+  return schema.format ? `${base} [${schema.format}]` : base;
 }

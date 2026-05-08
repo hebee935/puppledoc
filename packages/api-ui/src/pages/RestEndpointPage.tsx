@@ -39,6 +39,23 @@ function ModelLink({ name }: { name: string }) {
   );
 }
 
+function InlineModelLink({ name }: { name: string }) {
+  const selectEndpoint = useStore((s) => s.selectEndpoint);
+  return (
+    <button
+      type="button"
+      className="schema-type-ref"
+      onClick={(e) => {
+        e.stopPropagation();
+        selectEndpoint(`model:${name}`);
+      }}
+      title={`Go to ${name}`}
+    >
+      {name}
+    </button>
+  );
+}
+
 /** Render a model badge — wrapped in `array<…>` when the schema is a ref array. */
 function ModelBadge({ badge }: { badge: RefBadge }) {
   if (!badge.isArray) return <ModelLink name={badge.name} />;
@@ -195,6 +212,11 @@ function ParamList({ doc, params }: { doc: OpenApiDoc; params: Parameter[] }) {
         const schema = resolveRef(doc, p.schema) ?? p.schema;
         const typeLabel = deriveTypeLabel(schema);
         const example = p.example ?? schema?.example;
+        // Mirror SchemaTree's TypeCell: when the param schema $ref-resolves to an
+        // enum (or to a named primitive), surface a clickable link to the model
+        // page so reuse is visible at the parameter level too.
+        const refName = extractRefName(p.schema);
+        const linkedRef = refName && doc.components?.schemas?.[refName] ? refName : null;
         return (
           <div key={p.name} className="schema-row">
             <div className="schema-name">
@@ -202,7 +224,10 @@ function ParamList({ doc, params }: { doc: OpenApiDoc; params: Parameter[] }) {
               <span>{p.name}</span>
               {p.required && <span className="schema-req">required</span>}
             </div>
-            <div className={`schema-type type-${typeLabel}`}>{typeLabel}</div>
+            <div className={`schema-type type-${typeLabel}`}>
+              {typeLabel}
+              {linkedRef && <InlineModelLink name={linkedRef} />}
+            </div>
             <div>
               {p.description && <div className="schema-note">{p.description}</div>}
               {schema?.enum && <EnumValues values={schema.enum} />}
@@ -332,7 +357,10 @@ function deriveTypeLabel(schema: SchemaObj | undefined): string {
   if (schema.type === 'array' && schema.items) {
     return `array<${schema.items.format ?? schema.items.type ?? 'object'}>`;
   }
-  // Format wins over type — see SchemaTree for the full rationale.
-  return schema.format ?? schema.type ?? 'any';
+  // Show base type with format as a qualifier — `string [ulid]` reads better
+  // than a bare `ulid` since the underlying primitive is then unambiguous and
+  // the row's color (driven by `type-${base}`) stays consistent.
+  const base = schema.type ?? 'any';
+  return schema.format ? `${base} [${schema.format}]` : base;
 }
 
