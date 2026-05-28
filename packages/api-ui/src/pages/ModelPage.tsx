@@ -1,5 +1,5 @@
 import type { ModelEndpoint, OpenApiDoc, SchemaObj } from '../types';
-import { SchemaTree } from '../components/SchemaTree';
+import { SchemaTree, extractRefName } from '../components/SchemaTree';
 import { JsonView } from '../components/JsonView';
 import { renderMarkdownInline } from '../markdown';
 
@@ -72,10 +72,12 @@ function ModelSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
     return <SchemaTree doc={doc} schema={schema} />;
   }
   if (schema.type === 'array' && schema.items) {
+    const itemRef = extractRefName(schema.items);
+    const itemLabel = itemRef ?? schema.items.format ?? schema.items.type ?? 'object';
     return (
       <div>
         <div className="array-label">
-          array&lt;{schema.items.format ?? schema.items.type ?? 'object'}&gt;
+          array&lt;{itemLabel}&gt;
         </div>
         {schema.items.properties && <SchemaTree doc={doc} schema={schema.items} />}
       </div>
@@ -91,7 +93,9 @@ function ModelSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
 function deriveTypeLabel(schema: SchemaObj): string {
   if (schema.enum) return 'enum';
   if (schema.type === 'array' && schema.items) {
-    return `array<${schema.items.format ?? schema.items.type ?? 'object'}>`;
+    const itemRef = extractRefName(schema.items);
+    const inner = itemRef ?? schema.items.format ?? schema.items.type ?? 'object';
+    return `array<${inner}>`;
   }
   const base = schema.type ?? (schema.properties ? 'object' : 'any');
   return schema.format ? `${base} [${schema.format}]` : base;

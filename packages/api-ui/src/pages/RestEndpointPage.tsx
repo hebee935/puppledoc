@@ -355,7 +355,9 @@ function deriveTypeLabel(schema: SchemaObj | undefined): string {
   if (!schema) return 'any';
   if (schema.enum) return 'enum';
   if (schema.type === 'array' && schema.items) {
-    return `array<${schema.items.format ?? schema.items.type ?? 'object'}>`;
+    const itemRef = extractRefName(schema.items);
+    const inner = itemRef ?? schema.items.format ?? schema.items.type ?? 'object';
+    return `array<${inner}>`;
   }
   // Show base type with format as a qualifier — `string [ulid]` reads better
   // than a bare `ulid` since the underlying primitive is then unambiguous and
