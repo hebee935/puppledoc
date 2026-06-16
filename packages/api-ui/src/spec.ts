@@ -209,8 +209,14 @@ function liftInlineEnums(doc: OpenApiDoc): void {
   function visit(schema: SchemaObj, ctx: string): void {
     if (schema.$ref) return;
     if (schema.properties) {
+      const base = dtoBase(ctx);
       for (const propName of Object.keys(schema.properties)) {
-        liftSchema(schema.properties as unknown as SchemaObj, propName, capitalize(propName));
+        // Scope the lifted enum to its owning DTO so generic property names
+        // (`status`, `type`, `role`) don't collapse into `Status2`…`Status7`.
+        // `CreateProjectDto.status` → `ProjectStatus`, matching the original
+        // TS enum name that NestJS dropped when `enumName` was omitted.
+        const preferred = base ? base + capitalize(propName) : capitalize(propName);
+        liftSchema(schema.properties as unknown as SchemaObj, propName, preferred);
       }
     }
     if (schema.items && !schema.items.$ref) {
@@ -251,6 +257,23 @@ function hashEnum(values: unknown[]): string {
 
 function capitalize(s: string): string {
   return s.length > 0 ? s[0]!.toUpperCase() + s.slice(1) : s;
+}
+
+const DTO_PREFIX = /^(Create|Update|Patch|Upsert|Modify|Replace|New|Edit)/;
+const DTO_SUFFIX = /(Dto|Input|Request|Response|Body|Payload|Model|Schema)$/;
+
+/**
+ * Strip the conventional NestJS DTO affixes so a host schema name yields the
+ * domain entity it describes — `CreateProjectDto` → `Project`,
+ * `ProjectContractInputDto` → `ProjectContract`. Used to prefix lifted enum
+ * names so they read like the original TS enum (`ProjectStatus`) instead of a
+ * collision-numbered `Status7`. Falls back to the full name if stripping would
+ * leave nothing.
+ */
+function dtoBase(name: string): string {
+  let s = name.replace(DTO_PREFIX, '');
+  while (DTO_SUFFIX.test(s)) s = s.replace(DTO_SUFFIX, '');
+  return s.length > 0 ? s : name;
 }
 
 /**
