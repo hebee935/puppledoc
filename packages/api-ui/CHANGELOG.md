@@ -1,5 +1,11 @@
 # @puppledoc/space-ui
 
+## 1.2.6
+
+### Patch Changes
+
+- 62623b5: fix: name lifted inline enums by their owning DTO (`CreateProjectDto.status` → `ProjectStatus`) instead of the collision-numbered `Status7`
+
 ## 1.2.5
 
 ### Patch Changes
