@@ -1,5 +1,21 @@
 # @puppledoc/space-ui
 
+## 1.2.7
+
+### Patch Changes
+
+- Render `$ref`-wrapped and union schemas instead of `any`
+
+  OAS 3.0 forbids keywords next to a `$ref`, so NestJS wraps every property that
+  has both a `$ref` and its own `description` in a single-member `allOf`. Those
+  rows had no type and rendered as `any`; they now collapse to the 3.1-style
+  `{ $ref, description }` and render the referenced model. Multi-member `allOf`
+  (NestJS `extends` / `IntersectionType`) merges its members, so composed DTOs
+  show inherited fields instead of an empty body. `oneOf` / `anyOf` unions render
+  as `A | B | C` with a link per branch, including `array<A | B>`, and a `$ref`d
+  object property now shows its model name as a link the way `array<Dto>` and
+  `enum` already did.
+
 ## 1.2.6
 
 ### Patch Changes
