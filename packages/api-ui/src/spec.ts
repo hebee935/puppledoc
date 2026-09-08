@@ -19,6 +19,7 @@ const HTTP_METHODS: HttpMethod[] = ['get', 'post', 'put', 'patch', 'delete', 'op
  * document; within a group, endpoints keep their declared order.
  */
 export function normalize(doc: OpenApiDoc): EndpointGroup[] {
+  flattenRefWrappers(doc);
   liftInlineEnums(doc);
   const groups = new Map<string, EndpointGroup>();
   const upsertGroup = (id: string, name: string, description?: string): EndpointGroup => {
@@ -159,6 +160,38 @@ function slug(s: string): string {
 }
 
 /**
+ * OAS 3.0 forbids keywords next to a `$ref`, so NestJS wraps every property that
+ * carries both a `$ref` and its own `description` in a single-member `allOf`:
+ * `{ description, allOf: [{ $ref }] }`. Left alone those rows have no `type` and
+ * no `properties`, so the type column renders them as `any` and the model link
+ * never appears. Collapse the wrapper into the 3.1-style `{ $ref, description }`
+ * the rest of the UI already understands — the sibling keywords are what the
+ * author wrote on the property, so they win over the target schema's.
+ */
+function flattenRefWrappers(node: unknown): void {
+  if (Array.isArray(node)) {
+    for (const v of node) flattenRefWrappers(v);
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+  const obj = node as Record<string, unknown>;
+  const allOf = obj.allOf;
+  if (!obj.$ref && Array.isArray(allOf) && allOf.length === 1) {
+    const only = allOf[0] as Record<string, unknown> | null;
+    if (only && typeof only === 'object' && typeof only.$ref === 'string' && Object.keys(only).length === 1) {
+      obj.$ref = only.$ref;
+      delete obj.allOf;
+    }
+  }
+  for (const [key, value] of Object.entries(obj)) {
+    // `example` / `default` / `enum` hold user data, not schemas — a payload that
+    // happens to have an `allOf` key of its own must survive untouched.
+    if (key === 'example' || key === 'examples' || key === 'default' || key === 'enum') continue;
+    flattenRefWrappers(value);
+  }
+}
+
+/**
  * NestJS swagger inlines enum values when `@ApiProperty`'s `enumName` is omitted,
  * which leaves every such enum unlinkable in the UI. Lift those inline enums
  * into `components.schemas` so they show up in the Models group and the type
@@ -289,11 +322,69 @@ export function deriveSchemaKind(schema: SchemaObj): string {
   return 'any';
 }
 
+/**
+ * The `oneOf` / `anyOf` branches of a union schema, or null when it isn't one.
+ * A TS union of DTO classes can only reach OpenAPI this way (NestJS needs
+ * `@ApiExtraModels` + `oneOf: [getSchemaPath(...)]` to emit it).
+ */
+export function unionMembers(schema: SchemaObj | undefined): SchemaObj[] | null {
+  const members = schema?.oneOf ?? schema?.anyOf;
+  return members && members.length > 0 ? members : null;
+}
+
 /** Resolve a `$ref` pointer within the document's components.schemas table. */
 export function resolveRef(doc: OpenApiDoc, schema: SchemaObj | undefined): SchemaObj | undefined {
+  return resolveSchema(doc, schema, new Set());
+}
+
+function resolveSchema(
+  doc: OpenApiDoc,
+  schema: SchemaObj | undefined,
+  seen: Set<string>,
+): SchemaObj | undefined {
   if (!schema) return undefined;
-  if (!schema.$ref) return schema;
-  const m = /^#\/components\/schemas\/(.+)$/.exec(schema.$ref);
-  if (!m) return schema;
-  return doc.components?.schemas?.[m[1]!];
+  let s = schema;
+  if (s.$ref) {
+    const m = /^#\/components\/schemas\/(.+)$/.exec(s.$ref);
+    if (!m) return s;
+    if (seen.has(s.$ref)) return undefined;
+    seen.add(s.$ref);
+    const target = doc.components?.schemas?.[m[1]!];
+    if (!target) return undefined;
+    s = target;
+  }
+  return s.allOf?.length ? mergeAllOf(doc, s, seen) : s;
+}
+
+/**
+ * Flatten `allOf` composition into one object schema for display. NestJS emits
+ * it for `extends` / `IntersectionType` DTOs, whose own `properties` map is
+ * empty — without merging, such a model renders as `any` with no fields at all.
+ * Members merge in declaration order and the host's own keywords win.
+ */
+function mergeAllOf(doc: OpenApiDoc, schema: SchemaObj, seen: Set<string>): SchemaObj {
+  const out: SchemaObj = { ...schema };
+  delete out.allOf;
+  const properties: Record<string, SchemaObj> = {};
+  const required = new Set<string>();
+
+  for (const member of schema.allOf ?? []) {
+    const m = resolveSchema(doc, member, seen);
+    if (!m) continue;
+    Object.assign(properties, m.properties);
+    for (const r of m.required ?? []) required.add(r);
+    if (!out.type && m.type) out.type = m.type;
+    if (!out.description && m.description) out.description = m.description;
+    if (!out.enum && m.enum) out.enum = m.enum;
+    if (!out.items && m.items) out.items = m.items;
+  }
+  Object.assign(properties, schema.properties);
+  for (const r of schema.required ?? []) required.add(r);
+
+  if (Object.keys(properties).length > 0) {
+    out.properties = properties;
+    if (!out.type) out.type = 'object';
+  }
+  if (required.size > 0) out.required = [...required];
+  return out;
 }

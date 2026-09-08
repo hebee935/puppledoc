@@ -1,5 +1,6 @@
 import type { ModelEndpoint, OpenApiDoc, SchemaObj } from '../types';
-import { SchemaTree, extractRefName } from '../components/SchemaTree';
+import { SchemaTree, UnionType, extractRefName } from '../components/SchemaTree';
+import { resolveRef, unionMembers } from '../spec';
 import { JsonView } from '../components/JsonView';
 import { renderMarkdownInline } from '../markdown';
 
@@ -9,7 +10,9 @@ interface Props {
 }
 
 export function ModelPage({ doc, endpoint }: Props) {
-  const schema = endpoint.schema;
+  // Resolve so an `allOf`-composed model (NestJS `extends` / `IntersectionType`)
+  // shows the inherited fields instead of an empty body.
+  const schema = resolveRef(doc, endpoint.schema) ?? endpoint.schema;
   const typeLabel = deriveTypeLabel(schema);
   const example = schema.example;
 
@@ -57,6 +60,22 @@ export function ModelPage({ doc, endpoint }: Props) {
 }
 
 function ModelSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
+  const union = unionMembers(schema);
+  if (union) {
+    return (
+      <div className="model-union">
+        <div className="model-union-head">
+          one of <UnionType doc={doc} members={union} />
+        </div>
+        {/* Named branches are one click away on their own page; inline ones
+            have nowhere else to be shown, so expand them here. */}
+        {union.map((m, i) => {
+          const inline = extractRefName(m) ? null : resolveRef(doc, m);
+          return inline?.properties ? <SchemaTree key={i} doc={doc} schema={inline} /> : null;
+        })}
+      </div>
+    );
+  }
   if (schema.enum) {
     return (
       <div className="model-enum">
@@ -91,6 +110,7 @@ function ModelSchema({ doc, schema }: { doc: OpenApiDoc; schema: SchemaObj }) {
 }
 
 function deriveTypeLabel(schema: SchemaObj): string {
+  if (unionMembers(schema)) return 'union';
   if (schema.enum) return 'enum';
   if (schema.type === 'array' && schema.items) {
     const itemRef = extractRefName(schema.items);

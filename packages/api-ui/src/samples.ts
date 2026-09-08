@@ -1,5 +1,5 @@
 import type { OpenApiDoc, Parameter, SchemaObj } from './types';
-import { resolveRef } from './spec';
+import { resolveRef, unionMembers } from './spec';
 
 /**
  * Build a plausible example payload from a JSON Schema. Prefers schema.example,
@@ -12,6 +12,10 @@ export function buildExampleFromSchema(doc: OpenApiDoc, schema: SchemaObj | unde
   if (s.example !== undefined) return s.example;
   if (s.default !== undefined) return s.default;
   if (s.enum && s.enum.length) return s.enum[0];
+  // A union has no shape of its own — seed the first branch, which is the one
+  // a reader sees listed first in the docs.
+  const union = unionMembers(s);
+  if (union) return buildExampleFromSchema(doc, union[0]);
 
   switch (s.type) {
     case 'string':

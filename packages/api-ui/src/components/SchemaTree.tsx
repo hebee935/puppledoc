@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { OpenApiDoc, SchemaObj } from '../types';
-import { resolveRef } from '../spec';
+import { resolveRef, unionMembers } from '../spec';
 import { useStore } from '../store';
 
 interface Props {
@@ -76,7 +76,11 @@ function SchemaRow({
         </div>
         <TypeCell doc={doc} prop={prop} resolved={resolved} />
         <div>
-          {resolved.description && <div className="schema-note">{resolved.description}</div>}
+          {/* The property's own description wins over the referenced model's —
+              it describes this field, not the type. */}
+          {(prop.description ?? resolved.description) && (
+            <div className="schema-note">{prop.description ?? resolved.description}</div>
+          )}
           {resolved.enum && <EnumValues values={resolved.enum} />}
           {example !== undefined && example !== null && (
             <div className="schema-example">
@@ -115,6 +119,48 @@ export function EnumValues({ values }: { values: unknown[] }) {
       ))}
     </div>
   );
+}
+
+/**
+ * Render a `oneOf` / `anyOf` union as `A | B | C`, linking every branch that
+ * resolves to a component schema — the OpenAPI shape of a TS union of DTOs.
+ */
+export function UnionType({ doc, members }: { doc: OpenApiDoc; members: SchemaObj[] }) {
+  const selectEndpoint = useStore((s) => s.selectEndpoint);
+  return (
+    <span className="union-wrap">
+      {members.map((m, i) => {
+        const name = linkedModelName(doc, extractRefName(m));
+        return (
+          <span key={i}>
+            {i > 0 && <span className="union-sep"> | </span>}
+            {name ? (
+              <button
+                type="button"
+                className="schema-type-ref"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  selectEndpoint(`model:${name}`);
+                }}
+                title={`Go to ${name}`}
+              >
+                {name}
+              </button>
+            ) : (
+              memberLabel(m)
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** Best-effort label for an inline (unnamed) union branch. */
+function memberLabel(m: SchemaObj): string {
+  if (m.enum) return 'enum';
+  if (m.type === 'array') return `array<${m.items?.type ?? 'object'}>`;
+  return m.title ?? m.format ?? m.type ?? (m.properties ? 'object' : 'any');
 }
 
 /** Pull the trailing segment off a `#/components/schemas/<Name>` pointer. */
@@ -158,9 +204,30 @@ function TypeCell({
     </button>
   );
 
+  // A union has no `type` of its own, so it has to be checked before the
+  // primitive fall-through or every `oneOf` property renders as `any`.
+  const union = unionMembers(prop) ?? unionMembers(resolved);
+  if (union) {
+    return (
+      <div className="schema-type type-union">
+        <UnionType doc={doc} members={union} />
+      </div>
+    );
+  }
+
   // array<…>: prefer linking to the item's $ref when one resolves to a known
   // component schema, otherwise fall back to the format / inferred primitive type.
   if (resolved.type === 'array' && resolved.items) {
+    const itemUnion = unionMembers(prop.items) ?? unionMembers(resolved.items);
+    if (itemUnion) {
+      return (
+        <div className="schema-type type-array type-union">
+          <span className="model-array-wrap union-array">
+            array&lt;<UnionType doc={doc} members={itemUnion} />&gt;
+          </span>
+        </div>
+      );
+    }
     const itemRef = linkedModelName(doc, extractRefName(prop.items) ?? extractRefName(resolved.items));
     const itemLabel = resolved.items.format ?? resolved.items.type ?? 'object';
     return (
@@ -187,12 +254,16 @@ function TypeCell({
   // Show base type up front, then format in brackets — keeps the row's color
   // tied to the underlying primitive (e.g. `string [ulid]` stays green like
   // every other string) and makes the format read as a qualifier rather than a
-  // standalone type the reader has to recognize.
+  // standalone type the reader has to recognize. A `$ref`d type gets its model
+  // name appended as a link, the same treatment `array<Dto>` and `enum` get —
+  // otherwise a DTO-typed row reads as a bare `object` with no way to reach it.
   const base = resolved.type ?? (resolved.properties ? 'object' : 'any');
+  const modelRef = linkedModelName(doc, extractRefName(prop));
   return (
     <div className={`schema-type type-${base}`}>
       {base}
       {resolved.format && <span className="schema-format"> [{resolved.format}]</span>}
+      {modelRef && <ModelLink name={modelRef} />}
     </div>
   );
 }
