@@ -1,5 +1,17 @@
 # @puppledoc/space-ui
 
+## 1.2.8
+
+### Patch Changes
+
+- Label unresolvable `$ref`s by name instead of `any`
+
+  A `$ref` to a schema the document never defined — a DTO the server forgot to
+  register with `@ApiExtraModels` — rendered as `any` in a union and as
+  `array<object>` for array items, hiding both the type and the fact that the spec
+  is missing a schema. The pointer still names its target, so show that name
+  (unlinked, since there's no page to open).
+
 ## 1.2.7
 
 ### Patch Changes

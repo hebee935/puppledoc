@@ -156,8 +156,15 @@ export function UnionType({ doc, members }: { doc: OpenApiDoc; members: SchemaOb
   );
 }
 
-/** Best-effort label for an inline (unnamed) union branch. */
+/**
+ * Best-effort label for a union branch that can't be linked. A `$ref` the
+ * document never defined — a DTO the server forgot to register — still names
+ * its target, and that name is what the reader needs to see; falling through to
+ * `any` would hide both the type and the fact that the spec is missing a schema.
+ */
 function memberLabel(m: SchemaObj): string {
+  const refName = extractRefName(m);
+  if (refName) return refName;
   if (m.enum) return 'enum';
   if (m.type === 'array') return `array<${m.items?.type ?? 'object'}>`;
   return m.title ?? m.format ?? m.type ?? (m.properties ? 'object' : 'any');
@@ -228,8 +235,9 @@ function TypeCell({
         </div>
       );
     }
-    const itemRef = linkedModelName(doc, extractRefName(prop.items) ?? extractRefName(resolved.items));
-    const itemLabel = resolved.items.format ?? resolved.items.type ?? 'object';
+    const itemName = extractRefName(prop.items) ?? extractRefName(resolved.items);
+    const itemRef = linkedModelName(doc, itemName);
+    const itemLabel = itemName ?? resolved.items.format ?? resolved.items.type ?? 'object';
     return (
       <div className="schema-type type-array">
         {itemRef ? (
