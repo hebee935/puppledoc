@@ -1,5 +1,17 @@
 # @puppledoc/nestjs-api-reference
 
+## 1.2.9
+
+### Patch Changes
+
+- Support multi-file upload fields in the tester
+
+  A `FilesInterceptor`-style upload reaches the spec as `type: array` of
+  `format: binary`, but the form editor only recognised a lone binary string, so
+  such a field got a plain text box and could never be sent. It now renders a
+  `multiple` file picker, appends one part per file under the same field name, and
+  the curl / fetch / axios snippets repeat the append line per file.
+
 ## 1.2.8
 
 ### Patch Changes
