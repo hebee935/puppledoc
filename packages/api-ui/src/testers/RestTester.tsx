@@ -56,7 +56,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
   const [headerVals, setHeaderVals] = useState<Record<string, string>>({});
   const [customHeaders, setCustomHeaders] = useState<CustomHeader[]>([]);
   const [bodyTxt, setBodyTxt] = useState('');
-  const [formVals, setFormVals] = useState<Record<string, string | File>>({});
+  const [formVals, setFormVals] = useState<Record<string, string | File | File[]>>({});
   const [resp, setResp] = useState<RestRunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,7 +72,7 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
       setBodyTxt(example === undefined ? '' : JSON.stringify(example, null, 2));
       setFormVals({});
     } else if (body?.kind === 'form') {
-      const vals: Record<string, string | File> = {};
+      const vals: Record<string, string | File | File[]> = {};
       for (const f of formFields) {
         if (f.isFile) continue;
         if (f.example !== undefined && f.example !== null) vals[f.name] = String(f.example);
@@ -165,13 +165,20 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
 
   const codeStr = useMemo(() => {
     if (body?.kind === 'form') {
-      const fields = formFields.map((f) => {
+      const fields = formFields.flatMap((f) => {
         const v = formVals[f.name];
-        return {
+        // A multi-file field sends one part per file under the same name, so the
+        // snippet has to repeat the append/-F line the same number of times.
+        if (Array.isArray(v)) {
+          return v.length > 0
+            ? v.map((file) => ({ name: f.name, kind: 'file' as const, value: file.name }))
+            : [{ name: f.name, kind: 'file' as const, value: '' }];
+        }
+        return [{
           name: f.name,
           kind: f.isFile ? ('file' as const) : ('text' as const),
           value: v instanceof File ? v.name : typeof v === 'string' ? v : '',
-        };
+        }];
       }).filter((f) => f.value !== '' || f.kind === 'file');
       const args = { method: endpoint.method, url: fullUrl, headers, form: fields };
       if (codeLang === 'curl') return genCurl(args);
@@ -199,7 +206,8 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
         const fd = new FormData();
         for (const f of formFields) {
           const v = formVals[f.name];
-          if (v instanceof File) fd.append(f.name, v);
+          if (Array.isArray(v)) for (const file of v) fd.append(f.name, file);
+          else if (v instanceof File) fd.append(f.name, v);
           else if (typeof v === 'string' && v !== '') fd.append(f.name, v);
         }
         requestBody = fd;
@@ -323,10 +331,10 @@ export function RestTester({ doc, endpoint, leftEdge }: Props) {
                 field={f}
                 value={formVals[f.name]}
                 onText={(v) => setFormVals((prev) => ({ ...prev, [f.name]: v }))}
-                onFile={(file) => setFormVals((prev) => {
+                onFiles={(files) => setFormVals((prev) => {
                   const next = { ...prev };
-                  if (file) next[f.name] = file;
-                  else delete next[f.name];
+                  if (files.length === 0) delete next[f.name];
+                  else next[f.name] = f.multiple ? files : files[0]!;
                   return next;
                 })}
               />
@@ -598,6 +606,8 @@ function paramEnum(doc: OpenApiDoc, schema: SchemaObj | undefined): unknown[] | 
 interface FormField {
   name: string;
   isFile: boolean;
+  /** `type: array` of binaries — one part per file, all under this name. */
+  multiple: boolean;
   required: boolean;
   description?: string;
   example?: unknown;
@@ -609,9 +619,14 @@ function collectFormFields(doc: OpenApiDoc, schema: SchemaObj): FormField[] {
   const required = new Set(resolved.required ?? []);
   return Object.entries(resolved.properties).map(([name, raw]) => {
     const prop = resolveRef(doc, raw) ?? raw;
+    // `FilesInterceptor`-style uploads reach the spec as an array of binaries;
+    // a lone `format: binary` string is the single-file case.
+    const items = prop.type === 'array' ? resolveRef(doc, prop.items) ?? prop.items : undefined;
+    const isBinary = (s: SchemaObj | undefined) => s?.type === 'string' && s.format === 'binary';
     return {
       name,
-      isFile: prop.type === 'string' && prop.format === 'binary',
+      isFile: isBinary(prop) || isBinary(items),
+      multiple: !!items && isBinary(items),
       required: required.has(name),
       description: prop.description,
       example: prop.example,
@@ -623,13 +638,14 @@ function FormFieldInput({
   field,
   value,
   onText,
-  onFile,
+  onFiles,
 }: {
   field: FormField;
-  value: string | File | undefined;
+  value: string | File | File[] | undefined;
   onText: (v: string) => void;
-  onFile: (f: File | null) => void;
+  onFiles: (files: File[]) => void;
 }) {
+  const picked = Array.isArray(value) ? value : value instanceof File ? [value] : [];
   return (
     <div className="param-row">
       <span className="param-label" title={field.name}>
@@ -640,14 +656,16 @@ function FormFieldInput({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             type="file"
+            multiple={field.multiple}
             className="input"
             style={{ padding: 4 }}
             data-field={`body-${field.name}`}
-            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => onFiles([...(e.target.files ?? [])])}
           />
-          {value instanceof File && (
+          {picked.length > 0 && (
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-dark-muted)' }}>
-              {value.size}B
+              {picked.length > 1 ? `${picked.length} files, ` : ''}
+              {picked.reduce((n, f) => n + f.size, 0)}B
             </span>
           )}
         </div>
